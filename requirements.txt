@@ -2,12 +2,8 @@ fastapi
 uvicorn
 python-dotenv
 supabase
-openai
 python-multipart
-pydantic
 numpy
 huggingface-hub
 sentence-transformers
 transformers
-torch
-accelerate

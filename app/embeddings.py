@@ -1,6 +1,6 @@
 from sentence_transformers import SentenceTransformer
 
-model = SentenceTransformer("NovaSearch/stella_en_400M_v5", trust_remote_code=True)
+model = SentenceTransformer("Alibaba-NLP/gte-large-en-v1.5", trust_remote_code=True)
 
 sentences = [
     "That is a happy person",
@@ -11,5 +11,5 @@ sentences = [
 embeddings = model.encode(sentences)
 
 similarities = model.similarity(embeddings, embeddings)
-print(similarities.shape)
+print(similarities)
 # [4, 4]

@@ -3,14 +3,9 @@ from sentence_transformers import SentenceTransformer
 from typing import List
 import uuid
 from .encoding import encoded_documents
-from supabase import create_client
-from dotenv import load_dotenv
+from .lib.supabase_client import supabase_client
 
-load_dotenv()
-
-supabase_url = os.getenv("SUPABASE_URL")
-supabase_key = os.getenv("SUPABASE_SERVICE_KEY")
-supabase = create_client(supabase_url, supabase_key)
+supabase = supabase_client()
 
 class Document:
     def __init__(self, id: str, content: str, embedding: List[float], metadata: dict):

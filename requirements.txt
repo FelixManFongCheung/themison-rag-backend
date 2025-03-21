@@ -7,3 +7,7 @@ numpy
 huggingface-hub
 sentence-transformers
 transformers
+vecs
+langchain
+langchain_community 
+pypdf

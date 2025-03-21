@@ -1,15 +1,17 @@
 import os
 from pathlib import Path
 from langchain_community.document_loaders import PyPDFLoader
-from chunking import chunk
-from embeddings import encode
+from app.documents_processing.chunking import chunk
+from app.documents_processing.embeddings import encode
+from app.documents_processing.preprocessing import preprocessing
 
-def encode_doc(path, chunk_size=250, chunk_overlap=25):
+def encode_doc(path, chunk_size=1000, chunk_overlap=300):
     loader = PyPDFLoader(path)
     documents = loader.load()
+    documents = [preprocessing(doc.page_content) for doc in documents]
     texts = chunk(chunk_size, chunk_overlap, documents)
     print(texts)
-    # return encode(texts)
+    return encode(texts)
 
 def batch_encode_directory(directory_path):
     """

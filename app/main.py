@@ -1,11 +1,12 @@
 from fastapi import FastAPI
-from app.api.routes import documents
+from app.api.routes import documents, query
 
 def create_application() -> FastAPI:
     application = FastAPI()
 
     # Include only the items router
     application.include_router(documents.router, prefix="/documents")
+    application.include_router(query.router, prefix="/query")
 
     @application.get("/")
     async def root():

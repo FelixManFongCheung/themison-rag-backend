@@ -1,17 +1,20 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from .routes import api
+# from app.api.routes import items
 
-app = FastAPI(title="RAG API with Hybrid Search")
+def create_application() -> FastAPI:
+    application = FastAPI()
 
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    # Include only the items router
+    # application.include_router(items.router, prefix=settings.API_V1_STR)
 
-# Include routers
-app.include_router(api.router, prefix="/api/v1")
+    @application.get("/")
+    async def root():
+        return {"message": "Welcome to the API"}
+
+    return application
+
+app = create_application()
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

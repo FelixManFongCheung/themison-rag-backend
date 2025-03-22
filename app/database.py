@@ -37,7 +37,6 @@ async def insert_document(document):
             # Insert into Supabase
             await asyncio.to_thread(
                 lambda: supabase.table("documents").insert({
-                    "id": str(uuid.uuid4()),
                     "content": chunk.page_content,
                     "embedding": embedding_list,
                     "metadata": metadata

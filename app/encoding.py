@@ -1,8 +1,8 @@
 import os
 from pathlib import Path
-from app.documents_processing.chunking import chunk
-from app.documents_processing.embeddings import encode
-from app.documents_processing.preprocessing import preprocessing
+from app.indexing_processing.chunking import chunk
+from app.indexing_processing.embeddings import encode
+from app.indexing_processing.preprocessing import preprocessing
 from langchain.schema import Document
 
 def encode_doc(documents, chunk_size=1000, chunk_overlap=300):

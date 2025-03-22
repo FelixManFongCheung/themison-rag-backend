@@ -31,28 +31,38 @@ def generate_response(query, retrieved_documents: List[Dict[Any, Any]]):
     
     return prompt
 
-async def call_llm(prompt):
+async def call_llm_stream(prompt):
     # Set up your API client
     client = OpenAI(api_key=os.getenv('DEEPSEEK_API_KEY'), base_url="https://api.deepseek.com")
 
     try:
-        # Use asyncio to run the synchronous API call in a thread pool
-        loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(
-            None,
-            lambda: client.chat.completions.create(
-                model="deepseek-chat",
-                messages=[
-                    {"role": "system", "content": "You are a helpful assistant, answer the user's query based on the provided information."},
-                    {"role": "user", "content": prompt},
-                ],
-                stream=True,
-                temperature=0.5,
-                
+        # Create a generator function for streaming
+        async def response_generator():
+            # Start the stream in a separate thread
+            stream_response = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: client.chat.completions.create(
+                    model="deepseek-chat",
+                    messages=[
+                        {"role": "system", "content": "You are a helpful assistant, answer the user's query based on the provided information."},
+                        {"role": "user", "content": prompt},
+                    ],
+                    stream=True,  # Enable streaming
+                    temperature=0.5,
+                )
             )
-        )
-        
-        return response.choices[0].message.content
+            
+            # Iterate through the stream chunks
+            for chunk in stream_response:
+                # Check if the chunk has content
+                if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
+                    delta = chunk.choices[0].delta
+                    if hasattr(delta, 'content') and delta.content is not None:
+                        yield delta.content
+    
+        return response_generator()
     except Exception as e:
         logger.error(f"Error calling LLM API: {e}")
-        return "Sorry, I encountered an error generating a response."
+        async def error_generator():
+            yield "Sorry, I encountered an error generating a response."
+        return error_generator()

@@ -4,6 +4,7 @@ from typing import List
 import uuid
 from .encoding import encoded_documents
 from .lib.supabase_client import supabase_client
+import asyncio
 
 supabase = supabase_client()
 
@@ -15,7 +16,7 @@ class Document:
         self.metadata = metadata
 
 # Function to insert documents with embeddings
-def insert_documents(documents):
+async def insert_documents(documents):
     print(f"Processing {len(documents)} documents")
     total_chunks = 0
     
@@ -57,16 +58,3 @@ def insert_documents(documents):
     
     print(f"Successfully inserted {total_chunks} chunks into the database")
     return total_chunks
-
-# Function to search for similar documents
-def search_similar_documents(query_embedding, match_count=5):
-    # Use RPC call to a stored procedure for vector search
-    result = supabase.rpc(
-        'match_documents',
-        {'query_embedding': query_embedding, 'match_count': match_count}
-    ).execute()
-    
-    return result.data
-
-# Execute the insert_documents function with the encoded documents
-insert_documents(encoded_documents)

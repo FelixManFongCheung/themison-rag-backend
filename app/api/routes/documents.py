@@ -1,12 +1,11 @@
 from fastapi import APIRouter
-# from app.database import insert_documents
+from app.database import insert_documents
 router = APIRouter()
 
 @router.post("/upload")
 async def upload_documents():
-    
-    return {"message": "Hello, World!"}
-
-@router.get("/list")
-def list_documents():
-    return {"message": "Hello, World!"}
+    try:
+        await insert_documents()
+        return {"message": "Documents uploaded successfully"}
+    except Exception as e:
+        return {"message": f"Error uploading documents: {str(e)}"}

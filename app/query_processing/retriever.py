@@ -1,6 +1,7 @@
 from app.documents_processing.embeddings import encode
 from app.lib.supabase_client import supabase_client
 from typing import List, Dict, Any, Optional
+import asyncio
 
 supabase = supabase_client()
 
@@ -8,7 +9,7 @@ def preprocess_query(query: str) -> str:
     """Clean and normalize the query text."""
     return query.strip()
 
-def create_embeddings(query: str):
+async def create_embeddings(query: str):
     """Create embeddings for the query."""
     preprocessed_query = preprocess_query(query)
     embeddings = encode(preprocessed_query)
@@ -31,7 +32,7 @@ def create_retriever(
         A retrieval function that takes a query string and returns matching documents
     """
     
-    def retrieve(
+    async def retrieve(
         query: str, 
         override_alpha: Optional[float] = None,
         override_threshold: Optional[float] = None,
@@ -46,7 +47,7 @@ def create_retriever(
         count = override_count if override_count is not None else match_count
         
         # Perform hybrid search in Supabase
-        result = supabase.rpc(
+        result = await supabase.rpc(
             "hybrid_search",
             {
                 "query_text": query,

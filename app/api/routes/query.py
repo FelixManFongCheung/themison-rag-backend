@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
+from app.query_processing.retriever import create_retriever
 
 router = APIRouter()
 
@@ -8,5 +9,6 @@ class Query(BaseModel):
 
 @router.post("")
 async def query(query: Query):
-    print(query.query)
-    return {"message": f"Query: {query.query}"}
+    retriever = create_retriever(match_count=3, alpha=0.5)
+    results = await retriever(query.query) 
+    return results

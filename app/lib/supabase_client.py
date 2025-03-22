@@ -12,7 +12,7 @@ def supabase_client() -> Optional[Client]:
     
     if supabase_instance is None:
         url = os.getenv("SUPABASE_URL")
-        key = os.getenv("SUPABASE_KEY")
+        key = os.getenv("SUPABASE_SERVICE_KEY")
         supabase_instance = create_client(url, key)
     
     return supabase_instance

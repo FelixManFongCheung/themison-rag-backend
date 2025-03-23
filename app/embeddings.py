@@ -11,7 +11,7 @@ def get_embedding_model():
     
     # Check if we have a cached model
     if os.path.exists("model_cache/embedding_model"):
-        model = SentenceTransformer("model_cache/embedding_model")
+        model = SentenceTransformer("model_cache/embedding_model", trust_remote_code=True)
         print(f"Model loaded from cache in {time.time() - start_time:.2f} seconds")
     else:
         # Fallback to loading from the original source

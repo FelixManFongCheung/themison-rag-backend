@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 from app.indexing_processing.chunking import chunk
-from app.indexing_processing.embeddings import encode
+from app.embeddings import encode
 from app.indexing_processing.preprocessing import preprocessing
 from langchain.schema import Document
 

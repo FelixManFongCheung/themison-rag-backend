@@ -59,6 +59,7 @@ async def upload_documents(
     files: Annotated[List[UploadFile], File(description="Multiple PDF files")]
 ):
     try:
+        print('backend now')
         # Process all files concurrently
         results = await asyncio.gather(*[process_pdf(file) for file in files])
         

@@ -12,6 +12,7 @@ class Query(BaseModel):
 @router.post("")
 async def query(query: Query):
     try:
+        print('backend now')
         retriever = create_retriever(match_count=3)
         results = await retriever(query.query) 
         prompt = generate_response(query.query, results)

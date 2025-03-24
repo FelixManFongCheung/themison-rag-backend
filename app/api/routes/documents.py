@@ -8,12 +8,13 @@ from app.encoding import encode_doc
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from pypdf import PdfReader
 from langchain.docstore.document import Document as LangchainDocument
+import concurrent.futures
+import time
 
 router = APIRouter()
 
 async def process_pdf(file: UploadFile) -> Dict[str, Any]:
-    """Process a single PDF file and return the results."""
-    print('document processing')
+    """Process a single PDF file with parallel page extraction."""
     try:
         # Read file content
         content = await file.read()
@@ -22,32 +23,47 @@ async def process_pdf(file: UploadFile) -> Dict[str, Any]:
         # Create file-like object in memory
         pdf_stream = io.BytesIO(content)
         
-        # 1. Load the PDF
+        # Load the PDF
         pdf_reader = PdfReader(pdf_stream)
-        pages = []
+        total_pages = len(pdf_reader.pages)
         
-        for i, page in enumerate(pdf_reader.pages):
+        # Extract pages in parallel using ThreadPoolExecutor
+        def extract_page(page_num):
+            page = pdf_reader.pages[page_num]
             text = page.extract_text()
             metadata = {
                 "source": filename,
-                "page": i + 1,
-                "total_pages": len(pdf_reader.pages)
+                "page": page_num + 1,
+                "total_pages": total_pages
             }
-            pages.append(LangchainDocument(page_content=text, metadata=metadata))
+            return LangchainDocument(page_content=text, metadata=metadata)
         
-        doc_container = encode_doc(pages)
-        # 5. Insert into database
-        total_chunks = await insert_document(doc_container)
+        # Use ThreadPoolExecutor for parallel page extraction
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            page_nums = range(total_pages)
+            pages = list(executor.map(extract_page, page_nums))
+        
+        # Process in batches to avoid memory issues
+        batch_size = 20
+        all_chunks = 0
+        
+        for i in range(0, len(pages), batch_size):
+            page_batch = pages[i:i+batch_size]
+            doc_container = encode_doc(page_batch)
+            chunks_inserted = await insert_document(doc_container)
+            all_chunks += chunks_inserted
         
         return {
             "originalName": filename,
             "success": True,
             "size": len(content),
-            "chunks": total_chunks,
-            "pages": len(pdf_reader.pages)
+            "chunks": all_chunks,
+            "pages": total_pages
         }
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return {
             "originalName": getattr(file, "filename", "unknown"),
             "success": False,
@@ -61,7 +77,10 @@ async def upload_documents(
     try:
         print('backend now')
         # Process all files concurrently
+        start_time = time.time()
         results = await asyncio.gather(*[process_pdf(file) for file in files])
+        end_time = time.time()
+        print(f"Time taken to process files: {end_time - start_time:.2f} seconds")
         
         # Calculate total successful chunks
         total_chunks = sum(

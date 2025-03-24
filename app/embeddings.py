@@ -2,6 +2,7 @@ import os
 from functools import lru_cache
 import time
 from sentence_transformers import SentenceTransformer
+import numpy as np
 
 @lru_cache(maxsize=1)
 def get_embedding_model():
@@ -20,7 +21,27 @@ def get_embedding_model():
     
     return model
 
-def encode(texts):
-    """Generate embeddings for the given texts"""
+def encode(texts, batch_size=32):
+    """Generate embeddings for the given texts with batching"""
+    if not texts:
+        return []
+        
     model = get_embedding_model()
-    return model.encode(texts)
+    
+    # For small batches, encode directly
+    if len(texts) <= batch_size:
+        return model.encode(texts, convert_to_numpy=True)
+    
+    # For larger sets, process in batches
+    all_embeddings = []
+    for i in range(0, len(texts), batch_size):
+        batch = texts[i:i+batch_size]
+        batch_embeddings = model.encode(
+            batch,
+            show_progress_bar=len(batch) > 100,
+            convert_to_numpy=True
+        )
+        all_embeddings.append(batch_embeddings)
+    
+    # Combine all batches
+    return np.vstack(all_embeddings)

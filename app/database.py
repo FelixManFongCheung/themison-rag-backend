@@ -9,7 +9,6 @@ supabase = supabase_client()
 
 # Function to insert documents with embeddings
 async def insert_document(document):
-    print(f"Processing {len(document)} documents", document)
     total_chunks = 0
     
     # Get embeddings and chunks from the document container

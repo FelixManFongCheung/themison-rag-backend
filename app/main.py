@@ -2,6 +2,11 @@ from fastapi import FastAPI
 from app.api.routes import query, upload
 from app.utils.indexing.embeddings import get_embedding_model
 from contextlib import asynccontextmanager
+from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 ml_models = {}
 
@@ -14,6 +19,13 @@ async def lifespan(app: FastAPI):
     ml_models.clear()
     
 app = FastAPI(lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[os.getenv("FRONTEND_URL") |"http://localhost:3000"],  # Your frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 # Include only the items router
 app.include_router(upload.router, prefix="/documents")
 app.include_router(query.router, prefix="/query")

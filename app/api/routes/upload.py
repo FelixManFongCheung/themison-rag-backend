@@ -3,8 +3,8 @@ from fastapi.responses import JSONResponse
 import io
 import asyncio
 from typing import List, Dict, Any, Annotated
-from app.utils.database import insert_document
-from app.utils.encoding import encode_doc
+from app.utils.indexing.database import insert_document
+from app.utils.indexing.encoding import encode_doc
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from pypdf import PdfReader
 from langchain.docstore.document import Document as LangchainDocument

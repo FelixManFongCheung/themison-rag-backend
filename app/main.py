@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from app.api.routes import query, upload
-from app.utils.embeddings import get_embedding_model
+from app.utils.indexing.embeddings import get_embedding_model
 from contextlib import asynccontextmanager
 
 ml_models = {}

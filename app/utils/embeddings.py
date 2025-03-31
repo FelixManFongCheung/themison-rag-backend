@@ -3,9 +3,10 @@ from functools import lru_cache
 import time
 from sentence_transformers import SentenceTransformer
 import numpy as np
+from typing import Optional
 
 @lru_cache(maxsize=1)
-def get_embedding_model():
+def get_embedding_model(model_name: Optional[str] = None):
     """Load the embedding model from cache if available"""
     start_time = time.time()
     print("Loading embedding model...")
@@ -16,7 +17,7 @@ def get_embedding_model():
         print(f"Model loaded from cache in {time.time() - start_time:.2f} seconds")
     else:
         # Fallback to loading from the original source
-        model = SentenceTransformer("Alibaba-NLP/gte-large-en-v1.5", trust_remote_code=True)
+        model = SentenceTransformer(model_name, trust_remote_code=True)
         print(f"Model loaded from source in {time.time() - start_time:.2f} seconds")
     
     return model
@@ -26,7 +27,7 @@ def encode(texts, batch_size=32):
     if not texts:
         return []
         
-    model = get_embedding_model()
+    model = get_embedding_model("Alibaba-NLP/gte-large-en-v1.5")
     
     # For small batches, encode directly
     if len(texts) <= batch_size:

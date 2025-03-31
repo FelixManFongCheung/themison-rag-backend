@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-from app.retrieving_processing.retriever import create_retriever
-from app.generating_processing.generation import generate_response, call_llm_stream
+from app.utils.retriever import create_retriever
+from app.utils.generation import generate_response, call_llm_stream
 from fastapi.responses import StreamingResponse
 
 router = APIRouter()

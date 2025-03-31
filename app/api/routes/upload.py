@@ -3,8 +3,8 @@ from fastapi.responses import JSONResponse
 import io
 import asyncio
 from typing import List, Dict, Any, Annotated
-from app.database import insert_document
-from app.encoding import encode_doc
+from app.utils.database import insert_document
+from app.utils.encoding import encode_doc
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from pypdf import PdfReader
 from langchain.docstore.document import Document as LangchainDocument
@@ -23,32 +23,66 @@ async def process_pdf(file: UploadFile) -> Dict[str, Any]:
         # Create file-like object in memory
         pdf_stream = io.BytesIO(content)
         
-        # Load the PDF
-        pdf_reader = PdfReader(pdf_stream)
-        total_pages = len(pdf_reader.pages)
+        # Try to load the PDF with error handling
+        try:
+            pdf_reader = PdfReader(pdf_stream)
+            total_pages = len(pdf_reader.pages)
+            print(f"Total pages: {total_pages}")
+        except Exception as e:
+            print(f"Error loading PDF: {str(e)}")
+            return {
+                "originalName": filename,
+                "success": False,
+                "message": f"Error loading PDF: {str(e)}"
+            }
         
         # Extract pages in parallel using ThreadPoolExecutor
         def extract_page(page_num):
-            page = pdf_reader.pages[page_num]
-            text = page.extract_text()
-            metadata = {
-                "source": filename,
-                "page": page_num + 1,
-                "total_pages": total_pages
-            }
-            return LangchainDocument(page_content=text, metadata=metadata)
+            try:
+                page = pdf_reader.pages[page_num]
+                text = page.extract_text()
+                metadata = {
+                    "source": filename,
+                    "page": page_num + 1,
+                    "total_pages": total_pages
+                }
+                return LangchainDocument(page_content=text, metadata=metadata)
+            except Exception as e:
+                print(f"Error extracting page {page_num+1}: {str(e)}")
+                # Return a document with minimal content instead of failing
+                return LangchainDocument(
+                    page_content=f"[Error extracting page {page_num+1}]",
+                    metadata={
+                        "source": filename,
+                        "page": page_num + 1,
+                        "total_pages": total_pages,
+                        "error": str(e)
+                    }
+                )
         
         # Use ThreadPoolExecutor for parallel page extraction
         with concurrent.futures.ThreadPoolExecutor() as executor:
             page_nums = range(total_pages)
             pages = list(executor.map(extract_page, page_nums))
         
+        # Filter out empty pages if needed
+        valid_pages = [p for p in pages if p.page_content and p.page_content != f"[Error extracting page {p.metadata['page']}]"]
+        
+        if not valid_pages:
+            return {
+                "originalName": filename,
+                "success": False,
+                "message": "Could not extract text from any pages in the document"
+            }
+            
         # Process in batches to avoid memory issues
         batch_size = 20
         all_chunks = 0
         
-        for i in range(0, len(pages), batch_size):
-            page_batch = pages[i:i+batch_size]
+        print(f"Total valid pages: {len(valid_pages)}")
+        
+        for i in range(0, len(valid_pages), batch_size):
+            page_batch = valid_pages[i:i+batch_size]
             doc_container = encode_doc(page_batch)
             chunks_inserted = await insert_document(doc_container)
             all_chunks += chunks_inserted
@@ -58,7 +92,8 @@ async def process_pdf(file: UploadFile) -> Dict[str, Any]:
             "success": True,
             "size": len(content),
             "chunks": all_chunks,
-            "pages": total_pages
+            "pages": total_pages,
+            "parsed_pages": len(valid_pages)
         }
         
     except Exception as e:

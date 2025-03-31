@@ -1,6 +1,6 @@
 from fastapi import FastAPI
-from app.api.routes import documents, query
-from app.embeddings import get_embedding_model
+from app.api.routes import query, upload
+from app.utils.embeddings import get_embedding_model
 from contextlib import asynccontextmanager
 
 ml_models = {}
@@ -15,5 +15,5 @@ async def lifespan(app: FastAPI):
     
 app = FastAPI(lifespan=lifespan)
 # Include only the items router
-app.include_router(documents.router, prefix="/documents")
+app.include_router(upload.router, prefix="/documents")
 app.include_router(query.router, prefix="/query")

@@ -2,7 +2,7 @@ import os
 from sentence_transformers import SentenceTransformer
 from typing import List
 import uuid
-from .lib.supabase_client import supabase_client
+from app.lib.supabase_client import supabase_client
 import asyncio
 
 supabase = supabase_client()

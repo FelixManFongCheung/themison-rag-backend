@@ -1,6 +1,6 @@
 from typing import List, Dict, Any
 import os
-from openai import OpenAI
+from openai import AsyncOpenAI
 import asyncio
 from dotenv import load_dotenv
 import logging
@@ -33,34 +33,26 @@ def generate_response(query, retrieved_documents: List[Dict[Any, Any]]):
 
 async def call_llm_stream(prompt):
     # Set up your API client
-    client = OpenAI(api_key=os.getenv('DEEPSEEK_API_KEY'), base_url="https://api.deepseek.com")
+    client = AsyncOpenAI(api_key=os.getenv('DEEPSEEK_API_KEY'), base_url="https://api.deepseek.com")
 
-    try:
-        # Create a generator function for streaming
-        async def response_generator():
-            # Start the stream in a separate thread
-            stream_response = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: client.chat.completions.create(
-                    model="deepseek-chat",
-                    messages=[
-                        {"role": "system", "content": "You are a helpful assistant, answer the user's query based on the provided information."},
-                        {"role": "user", "content": prompt},
-                    ],
-                    stream=True,  # Enable streaming
-                    temperature=0.5,
-                )
-            )
+    try:     
+        # Start the stream in a separate thread
+        stream = await client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant, answer the user's query based on the provided information."},
+                {"role": "user", "content": prompt},
+            ],
+            stream=True,
+            temperature=0.5,
+        )
             
-            # Iterate through the stream chunks
-            for chunk in stream_response:
-                # Check if the chunk has content
-                if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
-                    delta = chunk.choices[0].delta
-                    if hasattr(delta, 'content') and delta.content is not None:
-                        yield delta.content
-    
-        return response_generator()
+        async def generator():
+            async for chunk in stream:
+                yield chunk.choices[0].delta.content or ""
+
+        response_messages = generator()
+        return response_messages
     except Exception as e:
         logger.error(f"Error calling LLM API: {e}")
         async def error_generator():

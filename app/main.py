@@ -21,11 +21,12 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.getenv("FRONTEND_URL") |"http://localhost:3000"],  # Your frontend URL
-    allow_credentials=True,
+    allow_origins=[os.getenv("FRONTEND_URL") or "http://localhost:3000"],  # Your frontend URL
     allow_methods=["*"],
     allow_headers=["*"],
+    allow_credentials=True,
 )
+
 # Include only the items router
 app.include_router(upload.router, prefix="/documents")
 app.include_router(query.router, prefix="/query")

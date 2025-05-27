@@ -1,4 +1,5 @@
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from app.api.routes.auth import get_current_user
 from fastapi.responses import JSONResponse
 import io
 import asyncio
@@ -9,15 +10,26 @@ from pypdf import PdfReader
 from langchain.docstore.document import Document as LangchainDocument
 import concurrent.futures
 import time
+from datetime import datetime
 
 router = APIRouter()
 
-async def process_pdf(file: UploadFile) -> Dict[str, Any]:
+async def process_pdf(
+    file: UploadFile,
+    user_id: str  # Add user_id parameter
+) -> Dict[str, Any]:
     """Process a single PDF file with parallel page extraction."""
     try:
         # Read file content
         content = await file.read()
         filename = file.filename or "unnamed.pdf"
+        
+        # Add user_id to metadata
+        metadata = {
+            "user_id": user_id,
+            "original_filename": filename,
+            "upload_time": datetime.utcnow().isoformat()
+        }
         
         # Create file-like object in memory
         pdf_stream = io.BytesIO(content)
@@ -43,7 +55,8 @@ async def process_pdf(file: UploadFile) -> Dict[str, Any]:
                 metadata = {
                     "source": filename,
                     "page": page_num + 1,
-                    "total_pages": total_pages
+                    "total_pages": total_pages,
+                    "user_id": user_id
                 }
                 return LangchainDocument(page_content=text, metadata=metadata)
             except Exception as e:
@@ -55,7 +68,8 @@ async def process_pdf(file: UploadFile) -> Dict[str, Any]:
                         "source": filename,
                         "page": page_num + 1,
                         "total_pages": total_pages,
-                        "error": str(e)
+                        "error": str(e),
+                        "user_id": user_id
                     }
                 )
         
@@ -83,7 +97,7 @@ async def process_pdf(file: UploadFile) -> Dict[str, Any]:
         for i in range(0, len(valid_pages), batch_size):
             page_batch = valid_pages[i:i+batch_size]
             doc_container = encode_doc(page_batch)
-            chunks_inserted = await insert_document(doc_container)
+            chunks_inserted = await insert_document(doc_container, metadata)
             all_chunks += chunks_inserted
         
         return {
@@ -92,7 +106,8 @@ async def process_pdf(file: UploadFile) -> Dict[str, Any]:
             "size": len(content),
             "chunks": all_chunks,
             "pages": total_pages,
-            "parsed_pages": len(valid_pages)
+            "parsed_pages": len(valid_pages),
+            "user_id": user_id  # Include user_id in response
         }
         
     except Exception as e:
@@ -106,13 +121,15 @@ async def process_pdf(file: UploadFile) -> Dict[str, Any]:
 
 @router.post("/upload")
 async def upload_documents(
-    files: Annotated[List[UploadFile], File(description="Multiple PDF files")]
+    files: Annotated[List[UploadFile], File(description="Multiple PDF files")],
+    user = Depends(get_current_user)  # Add authentication
 ):
     try:
-        print('backend now')
-        # Process all files concurrently
+        # Process all files concurrently with user_id
         start_time = time.time()
-        results = await asyncio.gather(*[process_pdf(file) for file in files])
+        results = await asyncio.gather(*[
+            process_pdf(file, user.id) for file in files
+        ])
         end_time = time.time()
         print(f"Time taken to process files: {end_time - start_time:.2f} seconds")
         
@@ -129,7 +146,8 @@ async def upload_documents(
         return {
             "success": True,
             "message": f"Successfully processed {successful_files}/{len(files)} files with {total_chunks} total chunks inserted.",
-            "files": results
+            "files": results,
+            "user_id": user.id
         }
         
     except Exception as e:
@@ -141,4 +159,34 @@ async def upload_documents(
                 "success": False,
                 "message": f"Error uploading documents: {str(e)}"
             }
+        )
+
+@router.get("/get/{document_id}") 
+async def get_document(
+    document_id: str,
+    user = Depends(get_current_user)  # Add authentication
+):
+    try:
+        # Get document and verify ownership
+        document = await get_document_by_id(document_id)
+        
+        # Check if document belongs to user
+        if document.get("user_id") != user.id:
+            raise HTTPException(
+                status_code=403,
+                detail="Not authorized to access this document"
+            )
+            
+        return JSONResponse(
+            status_code=200,
+            content={"success": True, "document": document}
+        )
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": f"Error getting document: {str(e)}"}
         )

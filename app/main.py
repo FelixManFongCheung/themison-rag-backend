@@ -1,5 +1,6 @@
 from fastapi import FastAPI
-from app.api.routes import query, upload
+from app.api.routes.protected import upload_router, query_router
+from app.api.routes import auth
 from app.utils.indexing.embeddings import get_embedding_model
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,5 +29,22 @@ app.add_middleware(
 )
 
 # Include only the items router
-app.include_router(upload.router, prefix="/documents")
-app.include_router(query.router, prefix="/query")
+# Public auth routes
+app.include_router(
+    auth.router,
+    prefix="/auth",
+    tags=["auth"]
+)
+
+# Protected routes
+app.include_router(
+    upload_router,
+    prefix="/documents",
+    tags=["documents"]
+)
+
+app.include_router(
+    query_router,
+    prefix="/query",
+    tags=["query"]
+)

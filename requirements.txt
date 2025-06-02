@@ -12,3 +12,5 @@ langchain
 langchain_community 
 pypdf
 openai
+sqlalchemy
+alembic

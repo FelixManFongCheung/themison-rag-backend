@@ -1,4 +1,4 @@
-from app.services.indexing.embeddings import encode
+from ..indexing.embeddings import encode
 from app.lib.supabase_client import supabase_client
 from typing import List, Dict, Any, Optional
 import asyncio

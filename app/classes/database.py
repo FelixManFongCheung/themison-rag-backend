@@ -1,7 +1,7 @@
 from supabase import create_client
 from typing import List, Dict, Optional
 import numpy as np
-from .config import get_settings
+from ..config import get_settings
 
 class SupabaseStore:
     def __init__(self):

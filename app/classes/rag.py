@@ -1,8 +1,8 @@
 from typing import List, Dict
 from openai import OpenAI
 from .database import SupabaseStore
-from .utils.indexing.embeddings import encode
-from .config import get_settings
+from ..utils.indexing.embeddings import encode
+from ..config import get_settings
 
 class RAGSystem:
     def __init__(self):

@@ -27,7 +27,6 @@ def batch_encode_directory(directory_path):
     
     return encoded_docs
 
-# Example usage:
 if __name__ == "__main__":
     encoded_documents = batch_encode_directory("../data/")
     

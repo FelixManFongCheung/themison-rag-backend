@@ -28,3 +28,9 @@ from .user import (
     UserUpdate,
     UserResponse,
 )
+from .query import (
+    QueryBase,
+    QueryCreate,
+    QueryUpdate,
+    QueryResponse,
+)

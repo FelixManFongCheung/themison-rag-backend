@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from app.api.routes import *
-from app.services.indexing.embeddings import get_embedding_model
+from app.services.utils.indexing.embeddings import get_embedding_model
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv

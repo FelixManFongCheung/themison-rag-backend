@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List
 from sentence_transformers import SentenceTransformer
-from app.core.config import get_settings
+from app.config import get_settings
 
 class EmbeddingProvider(ABC):
     @abstractmethod

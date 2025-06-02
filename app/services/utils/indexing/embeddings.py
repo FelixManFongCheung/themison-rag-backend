@@ -1,48 +1,43 @@
 import os
 from functools import lru_cache
-import time
 from sentence_transformers import SentenceTransformer
 import numpy as np
-from typing import Optional
+from typing import List, Union
+import asyncio
 
 @lru_cache(maxsize=1)
-def get_embedding_model(model_name: Optional[str] = None):
+def get_embedding_model() -> SentenceTransformer:
     """Load the embedding model from cache if available"""
-    start_time = time.time()
-    print("Loading embedding model...")
+    model_path = "model_cache/embedding_model"
+    model_name = "Alibaba-NLP/gte-large-en-v1.5"
     
-    # Check if we have a cached model
-    if os.path.exists("model_cache/embedding_model"):
-        model = SentenceTransformer("model_cache/embedding_model", trust_remote_code=True)
-        print(f"Model loaded from cache in {time.time() - start_time:.2f} seconds")
-    else:
-        # Fallback to loading from the original source
-        model = SentenceTransformer(model_name, trust_remote_code=True)
-        print(f"Model loaded from source in {time.time() - start_time:.2f} seconds")
-    
-    return model
+    return (
+        SentenceTransformer(model_path, trust_remote_code=True)
+        if os.path.exists(model_path)
+        else SentenceTransformer(model_name, trust_remote_code=True)
+    )
 
-def encode(texts, batch_size=32):
+async def encode_texts(texts: List[str], batch_size: int = 32) -> np.ndarray:
     """Generate embeddings for the given texts with batching"""
     if not texts:
-        return []
-        
-    model = get_embedding_model("Alibaba-NLP/gte-large-en-v1.5")
+        return np.array([])
     
-    # For small batches, encode directly
-    if len(texts) <= batch_size:
-        return model.encode(texts, convert_to_numpy=True)
+    model = get_embedding_model()
     
-    # For larger sets, process in batches
-    all_embeddings = []
-    for i in range(0, len(texts), batch_size):
-        batch = texts[i:i+batch_size]
-        batch_embeddings = model.encode(
-            batch,
-            show_progress_bar=len(batch) > 100,
-            convert_to_numpy=True
+    async def process_batch(batch: List[str]) -> np.ndarray:
+        return await asyncio.to_thread(
+            lambda: model.encode(
+                batch,
+                show_progress_bar=False,
+                convert_to_numpy=True
+            )
         )
-        all_embeddings.append(batch_embeddings)
     
-    # Combine all batches
-    return np.vstack(all_embeddings)
+    if len(texts) <= batch_size:
+        return await process_batch(texts)
+    
+    # Process in batches
+    batches = [texts[i:i + batch_size] for i in range(0, len(texts), batch_size)]
+    embeddings = await asyncio.gather(*[process_batch(batch) for batch in batches])
+    
+    return np.vstack(embeddings)

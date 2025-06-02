@@ -48,7 +48,7 @@ class DocumentService(IDocumentService):
         return [DocumentResponse.model_validate(doc) for doc in docs]
     
     async def search(self, query: str) -> List[DocumentResponse]:
-        # Implement full-text search logic
+        # Basic search implementation using SQL LIKE
         result = await self.db.execute(
             select(Document).filter(Document.content.ilike(f"%{query}%"))
         )
@@ -56,9 +56,37 @@ class DocumentService(IDocumentService):
         return [DocumentResponse.model_validate(doc) for doc in docs]
     
     async def create_embedding(self, doc_id: UUID) -> DocumentResponse:
-        # Implement embedding creation logic
-        pass
+        # Basic implementation without actual embedding creation
+        result = await self.db.execute(select(Document).filter(Document.id == doc_id))
+        if doc := result.scalar_one_or_none():
+            return DocumentResponse.model_validate(doc)
+        raise ValueError(f"Document {doc_id} not found")
     
     async def search_by_vector(self, query_vector: List[float], limit: int = 5) -> List[DocumentResponse]:
-        # Implement vector similarity search
-        pass 
+        # Basic implementation returning most recent documents
+        result = await self.db.execute(
+            select(Document).order_by(Document.created_at.desc()).limit(limit)
+        )
+        docs = result.scalars().all()
+        return [DocumentResponse.model_validate(doc) for doc in docs]
+
+    async def chunk(self, doc_id: UUID) -> List[DocumentResponse]:
+        """Basic implementation returning the document as a single chunk"""
+        result = await self.db.execute(select(Document).filter(Document.id == doc_id))
+        if doc := result.scalar_one_or_none():
+            return [DocumentResponse.model_validate(doc)]
+        raise ValueError(f"Document {doc_id} not found")
+
+    async def encode(self, doc_id: UUID) -> List[DocumentResponse]:
+        """Basic implementation without actual encoding"""
+        result = await self.db.execute(select(Document).filter(Document.id == doc_id))
+        if doc := result.scalar_one_or_none():
+            return [DocumentResponse.model_validate(doc)]
+        raise ValueError(f"Document {doc_id} not found")
+
+    async def preprocess(self, doc_id: UUID) -> List[DocumentResponse]:
+        """Basic implementation without actual preprocessing"""
+        result = await self.db.execute(select(Document).filter(Document.id == doc_id))
+        if doc := result.scalar_one_or_none():
+            return [DocumentResponse.model_validate(doc)]
+        raise ValueError(f"Document {doc_id} not found") 

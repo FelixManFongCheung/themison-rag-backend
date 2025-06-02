@@ -8,6 +8,10 @@ from typing import List
 from uuid import UUID
 from app.core.embeddings import EmbeddingProvider
 from app.core.storage import StorageProvider
+from .utils.indexing.chunking import chunk_documents
+from .utils.indexing.embeddings import encode_texts
+from .utils.indexing.preprocessing import preprocess_text
+from langchain.schema import Document as LangchainDocument
 
 class DocumentService(IDocumentService):
     def __init__(
@@ -21,14 +25,15 @@ class DocumentService(IDocumentService):
         self.storage_provider = storage_provider
     
     async def create(self, schema: DocumentCreate) -> DocumentResponse:
-        # Create document
         db_doc = Document(**schema.model_dump())
         self.db.add(db_doc)
         await self.db.commit()
         await self.db.refresh(db_doc)
         
-        # Generate embedding in background
-        await self.create_embedding(db_doc.id)
+        # Process document in background
+        await self.preprocess(db_doc.id)
+        await self.chunk(db_doc.id)
+        await self.encode(db_doc.id)
         
         return DocumentResponse.model_validate(db_doc)
     
@@ -46,9 +51,11 @@ class DocumentService(IDocumentService):
             await self.db.commit()
             await self.db.refresh(doc)
             
-            # Update embedding if content changed
+            # Reprocess document if content changed
             if 'content' in schema.model_dump(exclude_unset=True):
-                await self.create_embedding(doc.id)
+                await self.preprocess(doc.id)
+                await self.chunk(doc.id)
+                await self.encode(doc.id)
                 
             return DocumentResponse.model_validate(doc)
         raise ValueError(f"Document {id} not found")
@@ -92,10 +99,82 @@ class DocumentService(IDocumentService):
         raise ValueError(f"Document {doc_id} not found")
     
     async def search_by_vector(self, query_vector: List[float], limit: int = 5) -> List[DocumentResponse]:
-        # Implement vector similarity search using your vector store
-        # This is a simplified example
         similar_docs = await self.storage_provider.similarity_search(
             query_vector,
             limit=limit
         )
-        return [DocumentResponse.model_validate(doc) for doc in similar_docs] 
+        return [DocumentResponse.model_validate(doc) for doc in similar_docs]
+
+    async def chunk(self, doc_id: UUID) -> List[DocumentResponse]:
+        """Chunk document into smaller pieces"""
+        result = await self.db.execute(select(Document).filter(Document.id == doc_id))
+        if doc := result.scalar_one_or_none():
+            # Convert to LangChain document format
+            langchain_doc = LangchainDocument(
+                page_content=doc.content,
+                metadata=doc.metadata or {}
+            )
+            
+            # Chunk the document
+            chunked_docs = chunk_documents([langchain_doc])
+            
+            # Store chunks in document
+            doc.chunks = {
+                "chunks": [
+                    {"content": d.page_content, "metadata": d.metadata}
+                    for d in chunked_docs
+                ]
+            }
+            await self.db.commit()
+            
+            return [DocumentResponse.model_validate(doc)]
+        raise ValueError(f"Document {doc_id} not found")
+
+    async def encode(self, doc_id: UUID) -> List[DocumentResponse]:
+        """Encode document chunks"""
+        result = await self.db.execute(select(Document).filter(Document.id == doc_id))
+        if doc := result.scalar_one_or_none():
+            if not doc.chunks:
+                # If no chunks exist, create them first
+                await self.chunk(doc_id)
+                # Refresh doc to get chunks
+                await self.db.refresh(doc)
+            
+            # Get chunks
+            chunks = [
+                LangchainDocument(
+                    page_content=chunk["content"],
+                    metadata=chunk["metadata"]
+                )
+                for chunk in doc.chunks["chunks"]
+            ]
+            
+            # Generate embeddings
+            embeddings = await encode_texts([c.page_content for c in chunks])
+            
+            # Store embeddings with chunks
+            doc.chunks = {
+                "chunks": [
+                    {
+                        "content": chunk["content"],
+                        "metadata": chunk["metadata"],
+                        "embedding": emb.tolist()
+                    }
+                    for chunk, emb in zip(doc.chunks["chunks"], embeddings)
+                ]
+            }
+            await self.db.commit()
+            
+            return [DocumentResponse.model_validate(doc)]
+        raise ValueError(f"Document {doc_id} not found")
+
+    async def preprocess(self, doc_id: UUID) -> List[DocumentResponse]:
+        """Preprocess document before chunking/encoding"""
+        result = await self.db.execute(select(Document).filter(Document.id == doc_id))
+        if doc := result.scalar_one_or_none():
+            # Preprocess the content
+            doc.content = preprocess_text(doc.content)
+            await self.db.commit()
+            
+            return [DocumentResponse.model_validate(doc)]
+        raise ValueError(f"Document {doc_id} not found") 

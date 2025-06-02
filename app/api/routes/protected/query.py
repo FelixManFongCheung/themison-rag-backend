@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
-from app.utils.retriever import create_retriever
-from app.utils.retrieval_generation.generation import generate_response, call_llm_stream
+from app.services.retriever import create_retriever
+from app.services.retrieval_generation.generation import generate_response, call_llm_stream
 from fastapi.responses import StreamingResponse, JSONResponse
 from app.api.routes.auth import get_current_user
 

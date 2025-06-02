@@ -1,7 +1,7 @@
 from typing import List, Dict
 from openai import OpenAI
 from .database import SupabaseStore
-from ..utils.indexing.embeddings import encode
+from ..services.indexing.embeddings import encode
 from ..config import get_settings
 
 class RAGSystem:

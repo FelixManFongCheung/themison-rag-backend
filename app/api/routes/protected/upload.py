@@ -4,8 +4,8 @@ from fastapi.responses import JSONResponse
 import io
 import asyncio
 from typing import List, Dict, Any, Annotated
-from app.utils.indexing.database import insert_document
-from app.utils.indexing.encoding import encode_doc
+from app.services.indexing.database import insert_document
+from app.services.indexing.encoding import encode_doc
 from pypdf import PdfReader
 from langchain.docstore.document import Document as LangchainDocument
 import concurrent.futures

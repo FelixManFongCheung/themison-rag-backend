@@ -1,8 +1,8 @@
 import os
 from pathlib import Path
 from langchain_community.document_loaders import PyPDFLoader
-from ..utils.indexing.chunking import chunk
-from ..utils.indexing.embeddings import encode
+from ..services.indexing.chunking import chunk
+from ..services.indexing.embeddings import encode
 
 def encode_doc(path, chunk_size=250, chunk_overlap=25):
     loader = PyPDFLoader(path)

@@ -1,7 +1,6 @@
 from fastapi import FastAPI
-from app.api.routes.protected import upload_router, query_router
-from app.api.routes import auth
-from app.utils.indexing.embeddings import get_embedding_model
+from app.api.routes import *
+from app.services.indexing.embeddings import get_embedding_model
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -31,7 +30,7 @@ app.add_middleware(
 # Include only the items router
 # Public auth routes
 app.include_router(
-    auth.router,
+    auth_router,
     prefix="/auth",
     tags=["auth"]
 )

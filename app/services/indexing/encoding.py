@@ -1,8 +1,8 @@
 import os
 from pathlib import Path
-from app.utils.indexing.chunking import chunk
-from app.utils.indexing.embeddings import encode
-from app.utils.indexing.preprocessing import preprocessing
+from app.services.indexing.chunking import chunk
+from app.services.indexing.embeddings import encode
+from app.services.indexing.preprocessing import preprocessing
 from langchain.schema import Document
 import concurrent.futures
 

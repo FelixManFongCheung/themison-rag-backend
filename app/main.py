@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from app.api.routes import *
 from app.services.utils.indexing.embeddings import get_embedding_model
 from contextlib import asynccontextmanager
@@ -27,15 +27,23 @@ app.add_middleware(
     allow_credentials=True,
 )
 
+app.include_router(
+    auth_router,
+    prefix="/auth",
+    tags=["auth"]
+)
+
 # Protected routes
 app.include_router(
     upload_router,
     prefix="/documents",
-    tags=["documents"]
+    tags=["documents"],
+    dependencies=[Depends(auth.verify_jwt)]
 )
 
 app.include_router(
     query_router,
     prefix="/query",
-    tags=["query"]
+    tags=["query"],
+    dependencies=[Depends(auth.verify_jwt)]
 )

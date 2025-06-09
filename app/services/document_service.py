@@ -1,5 +1,5 @@
 from .interfaces.document_service import IDocumentService
-from app.schemas.document import DocumentCreate, DocumentUpdate, DocumentResponse
+from app.contracts.document import DocumentCreate, DocumentUpdate, DocumentResponse
 from app.models.documents import Document
 from app.models.embedding import Embedding
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,8 +24,8 @@ class DocumentService(IDocumentService):
         self.embedding_provider = embedding_provider
         self.storage_provider = storage_provider
     
-    async def create(self, schema: DocumentCreate) -> DocumentResponse:
-        db_doc = Document(**schema.model_dump())
+    async def create(self, contract: DocumentCreate) -> DocumentResponse:
+        db_doc = Document(**contract.model_dump())
         self.db.add(db_doc)
         await self.db.commit()
         await self.db.refresh(db_doc)
@@ -43,16 +43,16 @@ class DocumentService(IDocumentService):
             return DocumentResponse.model_validate(doc)
         raise ValueError(f"Document {id} not found")
     
-    async def update(self, id: UUID, schema: DocumentUpdate) -> DocumentResponse:
+    async def update(self, id: UUID, contract: DocumentUpdate) -> DocumentResponse:
         result = await self.db.execute(select(Document).filter(Document.id == id))
         if doc := result.scalar_one_or_none():
-            for key, value in schema.model_dump(exclude_unset=True).items():
+            for key, value in contract.model_dump(exclude_unset=True).items():
                 setattr(doc, key, value)
             await self.db.commit()
             await self.db.refresh(doc)
             
             # Reprocess document if content changed
-            if 'content' in schema.model_dump(exclude_unset=True):
+            if 'content' in contract.model_dump(exclude_unset=True):
                 await self.preprocess(doc.id)
                 await self.chunk(doc.id)
                 await self.encode(doc.id)

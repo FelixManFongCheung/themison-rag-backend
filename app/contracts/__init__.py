@@ -1,6 +1,6 @@
 from .base import (
-    BaseSchema,
-    TimestampedSchema,
+    BaseContract,
+    TimestampedContract,
 )
 from .document import (
     DocumentBase,

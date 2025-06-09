@@ -1,7 +1,7 @@
 from .base import IBaseService
 from typing import List
-from app.schemas.query import QueryCreate, QueryUpdate, QueryResponse
-from app.schemas.document import DocumentResponse
+from app.contracts.query import QueryCreate, QueryUpdate, QueryResponse
+from app.contracts.document import DocumentResponse
 
 class IQueryService(IBaseService[QueryCreate, QueryUpdate, QueryResponse]):
     async def search_documents(self, query: str) -> List[DocumentResponse]:

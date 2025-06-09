@@ -1,9 +1,8 @@
-from .base import BaseSchema, TimestampedSchema
+from .base import BaseContract, TimestampedContract
 from uuid import UUID
-from typing import Optional, Dict, List
-from datetime import datetime
+from typing import Optional, Dict
 
-class DocumentBase(BaseSchema):
+class DocumentBase(BaseContract):
     content: str
     metadata: Optional[Dict] = None
     chunks: Optional[Dict] = None
@@ -11,11 +10,11 @@ class DocumentBase(BaseSchema):
 class DocumentCreate(DocumentBase):
     pass
 
-class DocumentUpdate(BaseSchema):
+class DocumentUpdate(BaseContract):
     content: Optional[str] = None
     metadata: Optional[Dict] = None
     chunks: Optional[Dict] = None
 
-class DocumentResponse(DocumentBase, TimestampedSchema):
+class DocumentResponse(DocumentBase, TimestampedContract):
     id: UUID
     embedding_id: Optional[UUID] = None

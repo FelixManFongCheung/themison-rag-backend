@@ -15,7 +15,7 @@ class User(Base):
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String(255), unique=True)
-    password = Column(String(255))
+    password = Column(UUID(as_uuid=True))
     role: Mapped[UserRole] = Column(Enum(UserRole), default=UserRole.USER)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
     updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))

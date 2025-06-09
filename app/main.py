@@ -27,14 +27,6 @@ app.add_middleware(
     allow_credentials=True,
 )
 
-# Include only the items router
-# Public auth routes
-app.include_router(
-    auth_router,
-    prefix="/auth",
-    tags=["auth"]
-)
-
 # Protected routes
 app.include_router(
     upload_router,

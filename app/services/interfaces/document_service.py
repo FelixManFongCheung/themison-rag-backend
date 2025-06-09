@@ -1,11 +1,19 @@
 from .base import IBaseService
 from typing import List
 from uuid import UUID
-from app.schemas.document import DocumentCreate, DocumentUpdate, DocumentResponse
+from app.contracts.document import DocumentCreate, DocumentUpdate, DocumentResponse
 
 class IDocumentService(IBaseService[DocumentCreate, DocumentUpdate, DocumentResponse]):
     async def search(self, query: str) -> List[DocumentResponse]:
         """Search documents by content"""
+        pass
+    
+    async def create(self, doc: DocumentCreate) -> DocumentResponse:
+        """Create document"""
+        pass
+    
+    async def get(self, doc_id: UUID) -> DocumentResponse:
+        """Get document"""
         pass
     
     async def create_embedding(self, doc_id: UUID) -> DocumentResponse:

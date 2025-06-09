@@ -1,29 +1,23 @@
-from abc import ABC, abstractmethod
-from typing import Generic, TypeVar, List
+from typing import Generic, TypeVar, List, Protocol
 from uuid import UUID
-from app.schemas.base import BaseSchema
+from app.contracts.base import BaseContract
 
-CreateSchemaType = TypeVar("CreateSchemaType", bound=BaseSchema)
-UpdateSchemaType = TypeVar("UpdateSchemaType", bound=BaseSchema)
-ResponseSchemaType = TypeVar("ResponseSchemaType", bound=BaseSchema)
+CreateContractType = TypeVar("CreateContractType", bound=BaseContract)
+UpdateContractType = TypeVar("UpdateContractType", bound=BaseContract)
+ResponseContractType = TypeVar("ResponseContractType", bound=BaseContract)
 
-class IBaseService(ABC, Generic[CreateSchemaType, UpdateSchemaType, ResponseSchemaType]):
-    @abstractmethod
-    async def create(self, schema: CreateSchemaType) -> ResponseSchemaType:
+class IBaseService(Generic[CreateContractType, UpdateContractType, ResponseContractType]):
+    async def create(self, contract: CreateContractType) -> ResponseContractType:
         pass
     
-    @abstractmethod
-    async def get(self, id: UUID) -> ResponseSchemaType:
+    async def get(self, id: UUID) -> ResponseContractType:
         pass
     
-    @abstractmethod
-    async def update(self, id: UUID, schema: UpdateSchemaType) -> ResponseSchemaType:
+    async def update(self, id: UUID, contract: UpdateContractType) -> ResponseContractType:
         pass
     
-    @abstractmethod
     async def delete(self, id: UUID) -> None:
         pass
     
-    @abstractmethod
-    async def list(self) -> List[ResponseSchemaType]:
+    async def list(self) -> List[ResponseContractType]:
         pass 

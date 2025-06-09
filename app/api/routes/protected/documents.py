@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.services.interfaces.document_service import IDocumentService
-from app.schemas.document import DocumentCreate, DocumentUpdate, DocumentResponse
+from app.contracts.document import DocumentCreate, DocumentUpdate, DocumentResponse
 from app.dependencies.services import get_document_service
 from typing import List
 from uuid import UUID

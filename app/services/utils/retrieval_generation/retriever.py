@@ -1,4 +1,4 @@
-from ..indexing.embeddings import encode
+from ..indexing.embeddings import encode_texts
 from app.lib.supabase_client import supabase_client
 from typing import List, Dict, Any, Optional
 import asyncio
@@ -35,11 +35,11 @@ async def create_embeddings(query: str):
     """Create embeddings for the query asynchronously."""
     preprocessed_query = preprocess_query(query)
     # Run potentially CPU-intensive encoding in a thread pool
-    embeddings = await asyncio.to_thread(encode, preprocessed_query)
+    embeddings = await encode_texts([preprocessed_query])
     
     # Convert NumPy array to list if needed
     if isinstance(embeddings, np.ndarray):
-        embeddings = embeddings.tolist()
+        embeddings = embeddings.tolist()[0]  # Take first embedding since we only encoded one text
     
     return embeddings
 

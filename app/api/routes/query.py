@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
-from app.services.retrieval_generation_service import RetrievalGenerationService
+from app.services.retrieval.retrieval_generation_service import RetrievalGenerationService
 from fastapi.responses import StreamingResponse, JSONResponse
 from app.api.routes.auth import get_current_user
 from app.core.embeddings import get_embedding_provider

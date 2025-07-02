@@ -1,4 +1,4 @@
-from .interfaces.document_service import IDocumentService
+from ..interfaces.document_service import IDocumentService
 from app.contracts.document import DocumentCreate, DocumentUpdate, DocumentResponse
 from app.models.documents import Document
 from app.models.embedding import Embedding
@@ -8,9 +8,9 @@ from typing import List
 from uuid import UUID
 from app.core.embeddings import EmbeddingProvider
 from app.core.storage import StorageProvider
-from .utils.indexing.chunking import chunk_documents
-from .utils.indexing.embeddings import encode_texts
-from .utils.indexing.preprocessing import preprocess_text
+from .utils.chunking import chunk_documents
+from .utils.encoding import encode_texts
+from .utils.preprocessing import preprocess_text
 from langchain.schema import Document as LangchainDocument
 
 class DocumentService(IDocumentService):
@@ -23,63 +23,7 @@ class DocumentService(IDocumentService):
         self.db = db
         self.embedding_provider = embedding_provider
         self.storage_provider = storage_provider
-    
-    async def create(self, contract: DocumentCreate) -> DocumentResponse:
-        db_doc = Document(**contract.model_dump())
-        self.db.add(db_doc)
-        await self.db.commit()
-        await self.db.refresh(db_doc)
         
-        # Process document in background
-        await self.preprocess(db_doc.id)
-        await self.chunk(db_doc.id)
-        await self.encode(db_doc.id)
-        
-        return DocumentResponse.model_validate(db_doc)
-    
-    async def get(self, id: UUID) -> DocumentResponse:
-        result = await self.db.execute(select(Document).filter(Document.id == id))
-        if doc := result.scalar_one_or_none():
-            return DocumentResponse.model_validate(doc)
-        raise ValueError(f"Document {id} not found")
-    
-    async def update(self, id: UUID, contract: DocumentUpdate) -> DocumentResponse:
-        result = await self.db.execute(select(Document).filter(Document.id == id))
-        if doc := result.scalar_one_or_none():
-            for key, value in contract.model_dump(exclude_unset=True).items():
-                setattr(doc, key, value)
-            await self.db.commit()
-            await self.db.refresh(doc)
-            
-            # Reprocess document if content changed
-            if 'content' in contract.model_dump(exclude_unset=True):
-                await self.preprocess(doc.id)
-                await self.chunk(doc.id)
-                await self.encode(doc.id)
-                
-            return DocumentResponse.model_validate(doc)
-        raise ValueError(f"Document {id} not found")
-    
-    async def delete(self, id: UUID) -> None:
-        result = await self.db.execute(select(Document).filter(Document.id == id))
-        if doc := result.scalar_one_or_none():
-            await self.db.delete(doc)
-            await self.db.commit()
-        else:
-            raise ValueError(f"Document {id} not found")
-    
-    async def list(self) -> List[DocumentResponse]:
-        result = await self.db.execute(select(Document))
-        docs = result.scalars().all()
-        return [DocumentResponse.model_validate(doc) for doc in docs]
-    
-    async def search(self, query: str) -> List[DocumentResponse]:
-        # Get embedding for query
-        query_embedding = await self.embedding_provider.get_embedding(query)
-        
-        # Search by vector similarity
-        return await self.search_by_vector(query_embedding)
-    
     async def create_embedding(self, doc_id: UUID) -> DocumentResponse:
         # Get document
         result = await self.db.execute(select(Document).filter(Document.id == doc_id))
@@ -97,13 +41,6 @@ class DocumentService(IDocumentService):
             
             return DocumentResponse.model_validate(doc)
         raise ValueError(f"Document {doc_id} not found")
-    
-    async def search_by_vector(self, query_vector: List[float], limit: int = 5) -> List[DocumentResponse]:
-        similar_docs = await self.storage_provider.similarity_search(
-            query_vector,
-            limit=limit
-        )
-        return [DocumentResponse.model_validate(doc) for doc in similar_docs]
 
     async def chunk(self, doc_id: UUID) -> List[DocumentResponse]:
         """Chunk document into smaller pieces"""

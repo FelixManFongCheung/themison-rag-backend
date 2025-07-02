@@ -1,6 +1,6 @@
 from typing import List, Dict, Any, AsyncGenerator
-from .utils.retrieval_generation.generation import generate_response, call_llm_stream
-from .utils.retrieval_generation.retriever import create_retriever, preprocess_query
+from .utils.generation import generate_response, call_llm_stream
+from .retriever import create_retriever, preprocess_query
 from app.core.embeddings import EmbeddingProvider
 
 class RetrievalGenerationService:

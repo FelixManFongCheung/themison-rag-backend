@@ -36,8 +36,8 @@ app.include_router(
 # Protected routes
 app.include_router(
     upload_router,
-    prefix="/documents",
-    tags=["documents"],
+    prefix="/upload",
+    tags=["upload"],
     dependencies=[Depends(auth.verify_jwt)]
 )
 
@@ -45,5 +45,12 @@ app.include_router(
     query_router,
     prefix="/query",
     tags=["query"],
+    dependencies=[Depends(auth.verify_jwt)]
+)
+
+app.include_router(
+    documents_router,
+    prefix="/documents",
+    tags=["documents"],
     dependencies=[Depends(auth.verify_jwt)]
 )

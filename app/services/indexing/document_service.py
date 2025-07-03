@@ -1,17 +1,27 @@
 from ..interfaces.document_service import IDocumentService
 from app.contracts.document import DocumentCreate, DocumentUpdate, DocumentResponse
 from app.models.documents import Document
-from app.models.embedding import Embedding
+from app.models.chunks import DocumentChunk
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import List
+from sqlalchemy.exc import IntegrityError
+
+from typing import List, Optional, Dict
 from uuid import UUID
 from app.core.embeddings import EmbeddingProvider
 from app.core.storage import StorageProvider
+
 from .utils.chunking import chunk_documents
 from .utils.encoding import encode_texts
 from .utils.preprocessing import preprocess_text
 from langchain.schema import Document as LangchainDocument
+
+from app.db.session import engine
+from app.models.base import Base
+
+from datetime import datetime, UTC
+
 
 class DocumentService(IDocumentService):
     def __init__(
@@ -115,3 +125,49 @@ class DocumentService(IDocumentService):
             
             return [DocumentResponse.model_validate(doc)]
         raise ValueError(f"Document {doc_id} not found") 
+    
+        
+    async def ensure_tables_exist(self):
+        """Create tables if they don't exist"""
+        try:
+            async with engine.begin() as conn:
+                # Create all tables defined in Base metadata
+                await conn.run_sync(Base.metadata.create_all)
+            print("✅ Tables created or already exist")
+        except Exception as e:
+            print(f"❌ Error creating tables: {str(e)}")
+            raise
+    
+    async def insert_single_chunk(
+        self,
+        document_chunk: DocumentChunk
+    ) -> List[DocumentResponse]:
+        """Insert a single chunk"""
+        
+        await self.ensure_tables_exist();
+        
+        try: 
+            chunk = DocumentChunk(
+                id=UUID,
+                document_id=document_chunk.document_id,
+                content=document_chunk.content,
+                chunk_index=document_chunk.chunk_index,
+                metadata=document_chunk.metadata,
+                embedding=document_chunk.embedding,
+                created_at=datetime.now(UTC)
+            )
+                    
+            self.db.add(chunk)
+            await self.db.commit()
+            await self.db.refresh(chunk)
+        
+        except IntegrityError as e:
+            await self.db.rollback()
+            print(f"❌ Database integrity error: {str(e)}")
+            raise ValueError(f"Failed to insert chunks: {str(e)}")
+        except Exception as e:
+            await self.db.rollback()
+            print(f"❌ Error inserting chunks: {str(e)}")
+            raise
+        
+        return [DocumentResponse.model_validate(chunk)]

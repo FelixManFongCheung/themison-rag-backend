@@ -5,7 +5,7 @@ from app.config import get_settings
 
 class EmbeddingProvider(ABC):
     @abstractmethod
-    async def get_embedding(self, text: str) -> List[float]:
+    def get_embedding(self, text: str) -> List[float]:
         pass
 
 class SentenceTransformerProvider(EmbeddingProvider):
@@ -13,6 +13,8 @@ class SentenceTransformerProvider(EmbeddingProvider):
         settings = get_settings()
         self.model = SentenceTransformer(settings.embedding_model)
     
-    async def get_embedding(self, text: str) -> List[float]:
+    def get_embedding(self, text: str) -> List[float]:
         embedding = self.model.encode(text)
         return embedding.tolist() 
+
+# different embedding models comparison in the future hence the factory design 

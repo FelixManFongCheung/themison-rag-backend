@@ -18,3 +18,6 @@ class DocumentUpdate(BaseContract):
 class DocumentResponse(DocumentBase, TimestampedContract):
     id: UUID
     embedding_id: Optional[UUID] = None
+    
+class DocumentUpload(BaseContract):
+    document_url: str

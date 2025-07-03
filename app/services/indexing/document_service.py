@@ -1,5 +1,6 @@
+# app/services/indexing/document_service.py
 from ..interfaces.document_service import IDocumentService
-from app.contracts.document import DocumentCreate, DocumentUpdate, DocumentResponse
+from app.contracts.document import DocumentCreate, DocumentResponse
 from app.models.documents import Document
 from app.models.chunks import DocumentChunk
 
@@ -7,167 +8,194 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from typing import List, Optional, Dict
-from uuid import UUID
-from app.core.embeddings import EmbeddingProvider
-from app.core.storage import StorageProvider
+from typing import List, Optional, Dict, Any
+from uuid import UUID, uuid4
+from fastapi import UploadFile
+import PyPDF2
+import io
+import requests
 
+# Import your utils
 from .utils.chunking import chunk_documents
-from .utils.encoding import encode_texts
+from .utils.embeddings import encode_texts
 from .utils.preprocessing import preprocess_text
 from langchain.schema import Document as LangchainDocument
 
 from app.db.session import engine
 from app.models.base import Base
-
 from datetime import datetime, UTC
 
 
 class DocumentService(IDocumentService):
-    def __init__(
-        self, 
-        db: AsyncSession,
-        embedding_provider: EmbeddingProvider,
-        storage_provider: StorageProvider
-    ):
+    def __init__(self, db: AsyncSession):
         self.db = db
-        self.embedding_provider = embedding_provider
-        self.storage_provider = storage_provider
-        
-    async def create_embedding(self, doc_id: UUID) -> DocumentResponse:
-        # Get document
-        result = await self.db.execute(select(Document).filter(Document.id == doc_id))
-        if doc := result.scalar_one_or_none():
-            # Generate embedding
-            embedding_vector = await self.embedding_provider.get_embedding(doc.content)
-            
-            # Create or update embedding
-            db_embedding = Embedding(
-                document_id=doc.id,
-                embedding=embedding_vector
-            )
-            self.db.add(db_embedding)
-            await self.db.commit()
-            
-            return DocumentResponse.model_validate(doc)
-        raise ValueError(f"Document {doc_id} not found")
-
-    async def chunk(self, doc_id: UUID) -> List[DocumentResponse]:
-        """Chunk document into smaller pieces"""
-        result = await self.db.execute(select(Document).filter(Document.id == doc_id))
-        if doc := result.scalar_one_or_none():
-            # Convert to LangChain document format
-            langchain_doc = LangchainDocument(
-                page_content=doc.content,
-                metadata=doc.metadata or {}
-            )
-            
-            # Chunk the document
-            chunked_docs = chunk_documents([langchain_doc])
-            
-            # Store chunks in document
-            doc.chunks = {
-                "chunks": [
-                    {"content": d.page_content, "metadata": d.metadata}
-                    for d in chunked_docs
-                ]
-            }
-            await self.db.commit()
-            
-            return [DocumentResponse.model_validate(doc)]
-        raise ValueError(f"Document {doc_id} not found")
-
-    async def encode(self, doc_id: UUID) -> List[DocumentResponse]:
-        """Encode document chunks"""
-        result = await self.db.execute(select(Document).filter(Document.id == doc_id))
-        if doc := result.scalar_one_or_none():
-            if not doc.chunks:
-                # If no chunks exist, create them first
-                await self.chunk(doc_id)
-                # Refresh doc to get chunks
-                await self.db.refresh(doc)
-            
-            # Get chunks
-            chunks = [
-                LangchainDocument(
-                    page_content=chunk["content"],
-                    metadata=chunk["metadata"]
-                )
-                for chunk in doc.chunks["chunks"]
-            ]
-            
-            # Generate embeddings
-            embeddings = await encode_texts([c.page_content for c in chunks])
-            
-            # Store embeddings with chunks
-            doc.chunks = {
-                "chunks": [
-                    {
-                        "content": chunk["content"],
-                        "metadata": chunk["metadata"],
-                        "embedding": emb.tolist()
-                    }
-                    for chunk, emb in zip(doc.chunks["chunks"], embeddings)
-                ]
-            }
-            await self.db.commit()
-            
-            return [DocumentResponse.model_validate(doc)]
-        raise ValueError(f"Document {doc_id} not found")
-
-    async def preprocess(self, doc_id: UUID) -> List[DocumentResponse]:
-        """Preprocess document before chunking/encoding"""
-        result = await self.db.execute(select(Document).filter(Document.id == doc_id))
-        if doc := result.scalar_one_or_none():
-            # Preprocess the content
-            doc.content = preprocess_text(doc.content)
-            await self.db.commit()
-            
-            return [DocumentResponse.model_validate(doc)]
-        raise ValueError(f"Document {doc_id} not found") 
     
+    # =================== STEP 1: PDF PARSING ===================
+    async def parse_pdf(self, document_url: str) -> str:
+        """Extract text content from PDF file"""
+        try:
+            # Read PDF content
+            response = requests.get(document_url)
+            content = response.content
+            pdf_file = io.BytesIO(content)
+            
+            # Extract text using PyPDF2
+            pdf_reader = PyPDF2.PdfReader(pdf_file)
+            text_content = ""
+            
+            for page in pdf_reader.pages:
+                text_content += page.extract_text() + "\n"
+            
+            if not text_content.strip():
+                raise ValueError("No text content found in PDF")
+                
+            return text_content
+            
+        except Exception as e:
+            raise ValueError(f"Failed to parse PDF: {str(e)}")
+    
+    # =================== STEP 2: PREPROCESSING ===================
+    async def preprocess_content(self, content: str) -> str:
+        """Preprocess text content"""
+        return preprocess_text(content, clean_whitespace=True)
+    
+    # =================== STEP 3: CHUNKING ===================
+    async def chunk_content(
+        self, 
+        content: str, 
+        metadata: Dict[str, Any] = None,
+        chunk_size: int = 1000,
+        chunk_overlap: int = 200
+    ) -> List[LangchainDocument]:
+        """Split content into chunks"""
         
+        # Create LangChain document
+        doc = LangchainDocument(
+            page_content=content,
+            metadata=metadata or {}
+        )
+        
+        # Use your chunking utility
+        chunks = chunk_documents([doc], chunk_size, chunk_overlap)
+        return chunks
+    
+    # =================== STEP 4: EMBEDDING GENERATION ===================
+    async def generate_embeddings(self, chunks: List[LangchainDocument]) -> List[List[float]]:
+        """Generate embeddings for chunks"""
+        
+        # Extract text content
+        texts = [chunk.page_content for chunk in chunks]
+        
+        # Use your embedding utility
+        embeddings = await encode_texts(texts, batch_size=32)
+        
+        # Convert numpy arrays to lists
+        return [emb.tolist() for emb in embeddings]
+    
+    # =================== STEP 5: DATABASE INSERTION ===================
+    async def insert_document_with_chunks(
+        self,
+        title: str,
+        content: str,
+        chunks: List[LangchainDocument],
+        embeddings: List[List[float]],
+        metadata: Dict[str, Any] = None,
+        user_id: UUID = None
+    ) -> DocumentResponse:
+        """Insert document and its chunks into database"""
+        
+        await self.ensure_tables_exist()
+        
+        try:
+            # 1. Create main document
+            document = Document(
+                id=uuid4(),
+                title=title,
+                content=content,
+                metadata=metadata or {},
+                user_id=user_id,
+                created_at=datetime.now(UTC)
+            )
+            
+            self.db.add(document)
+            await self.db.flush()  # Get the document ID
+            
+            # 2. Insert chunks with embeddings
+            for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+                chunk_record = DocumentChunk(
+                    id=uuid4(),
+                    document_id=document.id,
+                    content=chunk.page_content,
+                    chunk_index=i,
+                    metadata={**chunk.metadata, "chunk_index": i},
+                    embedding=embedding,
+                    created_at=datetime.now(UTC)
+                )
+                self.db.add(chunk_record)
+            
+            await self.db.commit()
+            await self.db.refresh(document)
+            
+            return DocumentResponse.model_validate(document)
+            
+        except IntegrityError as e:
+            await self.db.rollback()
+            raise ValueError(f"Database integrity error: {str(e)}")
+        except Exception as e:
+            await self.db.rollback()
+            raise RuntimeError(f"Failed to insert document: {str(e)}")
+    
+    # =================== COMPLETE PIPELINE ===================
+    async def process_pdf_complete(
+        self,
+        document_url: str,
+        user_id: UUID = None,
+        chunk_size: int = 1000,
+        chunk_overlap: int = 200
+    ) -> DocumentResponse:
+        """Complete PDF processing pipeline"""
+        
+        try:
+            # Step 1: Parse PDF
+            content = await self.parse_pdf(document_url)
+            document_filename = document_url.split("/")[-1]
+            
+            # Step 2: Preprocess
+            preprocessed_content = await self.preprocess_content(content)
+            
+            # Step 3: Chunk
+            metadata = {"filename": document_filename, "content_type": "application/pdf"}
+            chunks = await self.chunk_content(
+                preprocessed_content, 
+                metadata, 
+                chunk_size, 
+                chunk_overlap
+            )
+            
+            # Step 4: Generate embeddings
+            embeddings = await self.generate_embeddings(chunks)
+            
+            # Step 5: Insert into database
+            document_title = document_filename or "Untitled Document"
+            result = await self.insert_document_with_chunks(
+                title=document_title,
+                content=preprocessed_content,
+                chunks=chunks,
+                embeddings=embeddings,
+                metadata=metadata,
+                user_id=user_id
+            )
+            
+            return result
+            
+        except Exception as e:
+            raise RuntimeError(f"PDF processing failed: {str(e)}")
+    
+    # =================== UTILITY METHODS ===================
     async def ensure_tables_exist(self):
         """Create tables if they don't exist"""
         try:
             async with engine.begin() as conn:
-                # Create all tables defined in Base metadata
                 await conn.run_sync(Base.metadata.create_all)
-            print("✅ Tables created or already exist")
         except Exception as e:
-            print(f"❌ Error creating tables: {str(e)}")
-            raise
-    
-    async def insert_single_chunk(
-        self,
-        document_chunk: DocumentChunk
-    ) -> List[DocumentResponse]:
-        """Insert a single chunk"""
-        
-        await self.ensure_tables_exist();
-        
-        try: 
-            chunk = DocumentChunk(
-                id=UUID,
-                document_id=document_chunk.document_id,
-                content=document_chunk.content,
-                chunk_index=document_chunk.chunk_index,
-                metadata=document_chunk.metadata,
-                embedding=document_chunk.embedding,
-                created_at=datetime.now(UTC)
-            )
-                    
-            self.db.add(chunk)
-            await self.db.commit()
-            await self.db.refresh(chunk)
-        
-        except IntegrityError as e:
-            await self.db.rollback()
-            print(f"❌ Database integrity error: {str(e)}")
-            raise ValueError(f"Failed to insert chunks: {str(e)}")
-        except Exception as e:
-            await self.db.rollback()
-            print(f"❌ Error inserting chunks: {str(e)}")
-            raise
-        
-        return [DocumentResponse.model_validate(chunk)]
+            raise RuntimeError(f"Failed to create tables: {str(e)}")

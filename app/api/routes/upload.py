@@ -4,8 +4,9 @@ from fastapi.responses import JSONResponse
 import io
 import asyncio
 from typing import List, Dict, Any, Annotated
-from app.services.indexing.utils.database import insert_document
-from app.services.indexing.utils.encoding import encode_doc
+from app.services.indexing.document_service import DocumentService
+from app.dependencies.rag import get_document_service
+from app.contracts.document import DocumentResponse
 from pypdf import PdfReader
 from langchain.docstore.document import Document as LangchainDocument
 import concurrent.futures
@@ -18,44 +19,33 @@ router = APIRouter()
 class UploadDocumentRequest(BaseModel):
     document_url: str
 
-@router.post("/upload-document")
-async def upload_document(
-    request: UploadDocumentRequest,
-    user = Depends(get_current_user)
+@router.post("/upload-pdf", response_model=DocumentResponse)
+async def upload_pdf_document(
+    document_url: str,
+    chunk_size: int = 1000,
+    chunk_overlap: int = 200,
+    user = Depends(get_current_user),
+    document_service: DocumentService = Depends(get_document_service)
 ):
+    """Upload and process PDF document through complete RAG pipeline"""
+    
+    # Validate file type
+    if not document_url.endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+    
     try:
-        document_url = request.document_url
-        file = await download_file(document_url)
-        
-        results = await asyncio.gather(*[
-            process_pdf(file, user.id) for file in files
-        ])
-        
-        # Calculate total successful chunks
-        total_chunks = sum(
-            result.get("chunks", 0) 
-            for result in results 
-            if result.get("success", False)
+        # Process PDF through complete pipeline
+        result = await document_service.process_pdf_complete(
+            document_url=document_url,
+            user_id=user.id,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap
         )
         
-        # Count successful files
-        successful_files = sum(1 for result in results if result.get("success", False))
+        return result
         
-        return {
-            "success": True,
-            "message": f"Successfully processed {successful_files}/{len(files)} files with {total_chunks} total chunks inserted.",
-            "files": results,
-            "user_id": user.id
-        }
-        
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return JSONResponse(
-            status_code=500,
-            content={
-                "success": False,
-                "message": f"Error uploading documents: {str(e)}"
-            }
-        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
 

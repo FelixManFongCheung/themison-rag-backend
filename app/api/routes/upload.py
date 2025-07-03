@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
-from app.api.routes.auth import get_current_user
+from app.dependencies.auth import get_current_user
 from fastapi.responses import JSONResponse
 import io
 import asyncio

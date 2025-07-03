@@ -1,11 +1,11 @@
-from sqlalchemy import Column, JSON, DateTime, ForeignKey, Vector
+from sqlalchemy import Column, JSON, DateTime, ForeignKey, Vector, Integer, Text
 from sqlalchemy.orm import Mapped, relationship
 from sqlalchemy.dialects.postgresql import UUID
 from .base import Base
 from datetime import datetime, UTC
 import uuid
 from .documents import Document
-from typing import List, Dict, Integer, Text
+from typing import List, Dict
 
 
 # New table for individual chunks

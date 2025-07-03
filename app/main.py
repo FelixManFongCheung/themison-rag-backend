@@ -1,23 +1,25 @@
 from fastapi import FastAPI, Depends
 from app.api.routes import *
-from app.services.utils.indexing.embeddings import get_embedding_model
-from contextlib import asynccontextmanager
+from app.dependencies.auth import auth
+from app.core.embeddings import SentenceTransformerProvider
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from contextlib import asynccontextmanager
 import os
 
 load_dotenv()
 
-ml_models = {}
+# Application state for storing loaded models
+app_state = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Load model in a background thread to avoid blocking startup
-    ml_models["embedding_model"] = get_embedding_model()
+    """Load heavy models at startup"""
+    app_state["embedding_provider"] = SentenceTransformerProvider()
     yield
-    # Clean up the ML models and release the resources
-    ml_models.clear()
-    
+    # Clean up
+    app_state.clear()
+
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,

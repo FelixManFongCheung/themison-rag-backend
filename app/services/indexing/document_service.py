@@ -3,6 +3,8 @@ from ..interfaces.document_service import IDocumentService
 from app.contracts.document import DocumentCreate, DocumentResponse
 from app.models.documents import Document
 from app.models.chunks import DocumentChunk
+from app.core.embeddings import EmbeddingProvider
+from app.core.storage import StorageProvider
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -11,13 +13,12 @@ from sqlalchemy.exc import IntegrityError
 from typing import List, Optional, Dict, Any
 from uuid import UUID, uuid4
 from fastapi import UploadFile
-import PyPDF2
+import pypdf as PyPDF2
 import io
 import requests
 
 # Import your utils
 from .utils.chunking import chunk_documents
-from .utils.embeddings import encode_texts
 from .utils.preprocessing import preprocess_text
 from langchain.schema import Document as LangchainDocument
 
@@ -27,8 +28,15 @@ from datetime import datetime, UTC
 
 
 class DocumentService(IDocumentService):
-    def __init__(self, db: AsyncSession):
+    def __init__(
+        self, 
+        db: AsyncSession,
+        embedding_provider: EmbeddingProvider,
+        storage_provider: StorageProvider
+    ):
         self.db = db
+        self.embedding_provider = embedding_provider
+        self.storage_provider = storage_provider
     
     # =================== STEP 1: PDF PARSING ===================
     async def parse_pdf(self, document_url: str) -> str:
@@ -86,11 +94,10 @@ class DocumentService(IDocumentService):
         # Extract text content
         texts = [chunk.page_content for chunk in chunks]
         
-        # Use your embedding utility
-        embeddings = await encode_texts(texts, batch_size=32)
+        # Use simplified batch processing
+        embeddings = self.embedding_provider.get_embeddings_batch(texts)
         
-        # Convert numpy arrays to lists
-        return [emb.tolist() for emb in embeddings]
+        return embeddings
     
     # =================== STEP 5: DATABASE INSERTION ===================
     async def insert_document_with_chunks(
@@ -116,7 +123,7 @@ class DocumentService(IDocumentService):
                 user_id=user_id,
                 created_at=datetime.now(UTC)
             )
-            
+                    
             self.db.add(document)
             await self.db.flush()  # Get the document ID
             
@@ -137,7 +144,7 @@ class DocumentService(IDocumentService):
             await self.db.refresh(document)
             
             return DocumentResponse.model_validate(document)
-            
+        
         except IntegrityError as e:
             await self.db.rollback()
             raise ValueError(f"Database integrity error: {str(e)}")

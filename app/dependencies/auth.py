@@ -6,30 +6,6 @@ from typing import Optional, Dict, Any
 supabase = supabase_client()
 security = HTTPBearer()
 
-async def verify_bearer_token(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
-) -> str:
-    """
-    Dependency to verify bearer token and return the token string.
-    Use this when you only need to verify the token is valid.
-    """
-    token = credentials.credentials
-    try:
-        user_response = supabase.auth.get_user(token)
-        if not user_response or not user_response.user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired token",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        return token
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Token verification failed: {str(e)}",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ) -> Dict[str, Any]:

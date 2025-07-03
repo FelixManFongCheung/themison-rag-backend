@@ -38,7 +38,6 @@ class DocumentService(IDocumentService):
         self.embedding_provider = embedding_provider
         self.storage_provider = storage_provider
     
-    # =================== STEP 1: PDF PARSING ===================
     async def parse_pdf(self, document_url: str) -> str:
         """Extract text content from PDF file"""
         try:
@@ -62,12 +61,10 @@ class DocumentService(IDocumentService):
         except Exception as e:
             raise ValueError(f"Failed to parse PDF: {str(e)}")
     
-    # =================== STEP 2: PREPROCESSING ===================
     async def preprocess_content(self, content: str) -> str:
         """Preprocess text content"""
         return preprocess_text(content, clean_whitespace=True)
     
-    # =================== STEP 3: CHUNKING ===================
     async def chunk_content(
         self, 
         content: str, 
@@ -77,29 +74,23 @@ class DocumentService(IDocumentService):
     ) -> List[LangchainDocument]:
         """Split content into chunks"""
         
-        # Create LangChain document
         doc = LangchainDocument(
             page_content=content,
             metadata=metadata or {}
         )
         
-        # Use your chunking utility
         chunks = chunk_documents([doc], chunk_size, chunk_overlap)
         return chunks
     
-    # =================== STEP 4: EMBEDDING GENERATION ===================
     async def generate_embeddings(self, chunks: List[LangchainDocument]) -> List[List[float]]:
         """Generate embeddings for chunks"""
         
-        # Extract text content
         texts = [chunk.page_content for chunk in chunks]
         
-        # Use simplified batch processing
         embeddings = self.embedding_provider.get_embeddings_batch(texts)
         
         return embeddings
     
-    # =================== STEP 5: DATABASE INSERTION ===================
     async def insert_document_with_chunks(
         self,
         title: str,
@@ -114,7 +105,6 @@ class DocumentService(IDocumentService):
         await self.ensure_tables_exist()
         
         try:
-            # 1. Create main document
             document = Document(
                 id=uuid4(),
                 title=title,
@@ -125,9 +115,8 @@ class DocumentService(IDocumentService):
             )
                     
             self.db.add(document)
-            await self.db.flush()  # Get the document ID
+            await self.db.flush()
             
-            # 2. Insert chunks with embeddings
             for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
                 chunk_record = DocumentChunk(
                     id=uuid4(),
@@ -152,7 +141,6 @@ class DocumentService(IDocumentService):
             await self.db.rollback()
             raise RuntimeError(f"Failed to insert document: {str(e)}")
     
-    # =================== COMPLETE PIPELINE ===================
     async def process_pdf_complete(
         self,
         document_url: str,
@@ -163,14 +151,11 @@ class DocumentService(IDocumentService):
         """Complete PDF processing pipeline"""
         
         try:
-            # Step 1: Parse PDF
             content = await self.parse_pdf(document_url)
             document_filename = document_url.split("/")[-1]
             
-            # Step 2: Preprocess
             preprocessed_content = await self.preprocess_content(content)
             
-            # Step 3: Chunk
             metadata = {"filename": document_filename, "content_type": "application/pdf"}
             chunks = await self.chunk_content(
                 preprocessed_content, 
@@ -179,10 +164,8 @@ class DocumentService(IDocumentService):
                 chunk_overlap
             )
             
-            # Step 4: Generate embeddings
             embeddings = await self.generate_embeddings(chunks)
             
-            # Step 5: Insert into database
             document_title = document_filename or "Untitled Document"
             result = await self.insert_document_with_chunks(
                 title=document_title,
@@ -198,7 +181,6 @@ class DocumentService(IDocumentService):
         except Exception as e:
             raise RuntimeError(f"PDF processing failed: {str(e)}")
     
-    # =================== UTILITY METHODS ===================
     async def ensure_tables_exist(self):
         """Create tables if they don't exist"""
         try:

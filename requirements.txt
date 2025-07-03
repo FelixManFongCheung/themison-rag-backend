@@ -9,7 +9,8 @@ sentence-transformers
 transformers
 vecs
 langchain
-langchain_community 
+langchain_community
+langchain_text_splitters
 pypdf
 openai
 sqlalchemy

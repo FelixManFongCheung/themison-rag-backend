@@ -93,69 +93,82 @@ class DocumentService(IDocumentService):
     
     async def insert_document_with_chunks(
         self,
-        title: str,
+        title: str, 
+        document_id: UUID,  # Existing document ID from frontend
         content: str,
         chunks: List[LangchainDocument],
         embeddings: List[List[float]],
         metadata: Dict[str, Any] = None,
         user_id: UUID = None
     ) -> DocumentResponse:
-        """Insert document and its chunks into database"""
+        """Process existing document and add chunks with embeddings"""
         
         await self.ensure_tables_exist()
         
         try:
-            document = Document(
-                id=uuid4(),
-                title=title,
-                content=content,
-                metadata=metadata or {},
-                user_id=user_id,
-                created_at=datetime.now(UTC)
-            )
-                    
-            self.db.add(document)
-            await self.db.flush()
+            # Find existing document that frontend already created
+            document = await self.db.get(Document, document_id)
+            if not document:
+                raise ValueError(f"Document {document_id} not found. Frontend should create it first.")
             
+            # Optionally update document with processed content
+            if content:
+                document.content = content
+            if metadata:
+                # Merge with existing metadata
+                existing_metadata = document.metadata or {}
+                document.metadata = {**existing_metadata, **metadata}
+            
+            # No need to add document - it already exists and SQLAlchemy is tracking it
+            await self.db.flush()  # Save any document updates
+            
+            # Add chunks that reference the existing document
             for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
                 chunk_record = DocumentChunk(
                     id=uuid4(),
-                    document_id=document.id,
+                    document_id=document.id,  # Reference existing document
                     content=chunk.page_content,
                     chunk_index=i,
                     metadata={**chunk.metadata, "chunk_index": i},
                     embedding=embedding,
                     created_at=datetime.now(UTC)
                 )
-                self.db.add(chunk_record)
+                self.db.add(chunk_record)  # Add NEW chunk
             
             await self.db.commit()
             await self.db.refresh(document)
             
             return DocumentResponse.model_validate(document)
         
+        except ValueError as e:
+            await self.db.rollback()
+            raise e  # Re-raise ValueError as-is
         except IntegrityError as e:
             await self.db.rollback()
             raise ValueError(f"Database integrity error: {str(e)}")
         except Exception as e:
             await self.db.rollback()
-            raise RuntimeError(f"Failed to insert document: {str(e)}")
+            raise RuntimeError(f"Failed to process document chunks: {str(e)}")
     
     async def process_pdf_complete(
         self,
         document_url: str,
+        document_id: UUID,  # Existing document ID from frontend
         user_id: UUID = None,
         chunk_size: int = 1000,
         chunk_overlap: int = 200
     ) -> DocumentResponse:
-        """Complete PDF processing pipeline"""
+        """Complete PDF processing pipeline for existing document"""
         
         try:
+            # Step 1: Parse PDF from URL
             content = await self.parse_pdf(document_url)
             document_filename = document_url.split("/")[-1]
             
+            # Step 2: Preprocess content
             preprocessed_content = await self.preprocess_content(content)
             
+            # Step 3: Chunk content
             metadata = {"filename": document_filename, "content_type": "application/pdf"}
             chunks = await self.chunk_content(
                 preprocessed_content, 
@@ -164,11 +177,14 @@ class DocumentService(IDocumentService):
                 chunk_overlap
             )
             
+            # Step 4: Generate embeddings
             embeddings = await self.generate_embeddings(chunks)
             
+            # Step 5: Process existing document and add chunks
             document_title = document_filename or "Untitled Document"
             result = await self.insert_document_with_chunks(
                 title=document_title,
+                document_id=document_id,  # Use existing document ID
                 content=preprocessed_content,
                 chunks=chunks,
                 embeddings=embeddings,

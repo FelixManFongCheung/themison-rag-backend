@@ -1,30 +1,29 @@
 # app/services/indexing/document_service.py
-from ..interfaces.document_service import IDocumentService
-from app.contracts.document import DocumentCreate, DocumentResponse
-from app.models.documents import Document
-from app.models.chunks import DocumentChunk
-from app.core.embeddings import EmbeddingProvider
-from app.core.storage import StorageProvider
+import io
+from datetime import UTC, datetime
+from typing import Any, Dict, List, Optional
+from uuid import UUID, uuid4
 
-from sqlalchemy.ext.asyncio import AsyncSession
+import pypdf as PyPDF2
+import requests
+from fastapi import UploadFile
+from langchain.schema import Document as LangchainDocument
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from typing import List, Optional, Dict, Any
-from uuid import UUID, uuid4
-from fastapi import UploadFile
-import pypdf as PyPDF2
-import io
-import requests
+from app.contracts.document import DocumentCreate, DocumentResponse
+from app.core.embeddings import EmbeddingProvider
+from app.core.storage import StorageProvider
+from app.db.session import engine
+from app.models.base import Base
+from app.models.chunks import DocumentChunk
+from app.models.documents import Document
 
+from ..interfaces.document_service import IDocumentService
 # Import your utils
 from .utils.chunking import chunk_documents
 from .utils.preprocessing import preprocess_text
-from langchain.schema import Document as LangchainDocument
-
-from app.db.session import engine
-from app.models.base import Base
-from datetime import datetime, UTC
 
 
 class DocumentService(IDocumentService):
@@ -70,7 +69,6 @@ class DocumentService(IDocumentService):
         content: str, 
         metadata: Dict[str, Any] = None,
         chunk_size: int = 1000,
-        chunk_overlap: int = 200
     ) -> List[LangchainDocument]:
         """Split content into chunks"""
         
@@ -79,7 +77,7 @@ class DocumentService(IDocumentService):
             metadata=metadata or {}
         )
         
-        chunks = chunk_documents([doc], chunk_size, chunk_overlap)
+        chunks = chunk_documents([doc], chunk_size)
         return chunks
     
     async def generate_embeddings(self, chunks: List[LangchainDocument]) -> List[List[float]]:
@@ -156,7 +154,6 @@ class DocumentService(IDocumentService):
         document_id: UUID,  # Existing document ID from frontend
         user_id: UUID = None,
         chunk_size: int = 1000,
-        chunk_overlap: int = 200
     ) -> DocumentResponse:
         """Complete PDF processing pipeline for existing document"""
         
@@ -174,7 +171,6 @@ class DocumentService(IDocumentService):
                 preprocessed_content, 
                 metadata, 
                 chunk_size, 
-                chunk_overlap
             )
             
             # Step 4: Generate embeddings

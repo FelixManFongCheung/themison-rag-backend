@@ -28,7 +28,6 @@ async def upload_pdf_document(
     document_url: str,
     document_id: UUID,  # UUID of existing document created by frontend
     chunk_size: int = 1000,
-    chunk_overlap: int = 100,
     user = Depends(get_current_user),
     document_service: DocumentService = Depends(get_document_service)
 ):
@@ -53,7 +52,6 @@ async def upload_pdf_document(
             document_id=document_id,  # Reference existing document
             user_id=user["id"],  # Fixed: user is dict, not object
             chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap
         )
         
         return result

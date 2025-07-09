@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
 from typing import List, Optional
-from app.services.retrieval.retrieval_generation_service import RetrievalGenerationService
-from fastapi.responses import StreamingResponse, JSONResponse
+
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import BaseModel
+
 from app.api.routes.auth import get_current_user
-from app.core.embeddings import get_embedding_provider
+from app.dependencies.providers import get_embedding_provider
+from app.services.retrieval.retrieval_generation_service import \
+    RetrievalGenerationService
 
 router = APIRouter()
 

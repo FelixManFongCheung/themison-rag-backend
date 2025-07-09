@@ -1,9 +1,11 @@
-from app.services.indexing.utils.encoding import encode
-from app.supabase_client.supabase_client import supabase_client
-from typing import List, Dict, Any, Optional
 import asyncio
-import numpy as np
 import re
+from typing import Any, Dict, List, Optional
+
+import numpy as np
+
+from app.core.embeddings import EmbeddingProvider
+from app.supabase_client.supabase_client import supabase_client
 
 supabase = supabase_client()
 
@@ -31,19 +33,17 @@ def preprocess_query_for_tsquery(query: str) -> str:
     
     return formatted_query
 
-async def create_embeddings(query: str):
+async def create_embeddings(query: str, embedding_provider: EmbeddingProvider):
     """Create embeddings for the query asynchronously."""
     preprocessed_query = preprocess_query(query)
-    # Run potentially CPU-intensive encoding in a thread pool
-    embeddings = await asyncio.to_thread(encode, preprocessed_query)
+    # Use the embedding provider to generate embeddings
+    embeddings = embedding_provider.get_embedding([preprocessed_query])
     
-    # Convert NumPy array to list if needed
-    if isinstance(embeddings, np.ndarray):
-        embeddings = embeddings.tolist()
-    
-    return embeddings
+    # Return the first (and only) embedding
+    return embeddings[0] if embeddings else []
 
 def create_retriever(
+    embedding_provider: EmbeddingProvider,
     match_count: int = 10,
 ):  
     async def retrieve(
@@ -51,7 +51,7 @@ def create_retriever(
         override_match_count: Optional[int] = None
     ) -> List[Dict[Any, Any]]:
         # Generate embedding for the query
-        query_embedding = await create_embeddings(query)
+        query_embedding = await create_embeddings(query, embedding_provider)
         
         # Use override parameters if provided, otherwise use defaults
         count = override_match_count if override_match_count is not None else match_count        

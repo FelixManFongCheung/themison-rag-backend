@@ -120,6 +120,8 @@ class DocumentService(IDocumentService):
             # No need to add document - it already exists and SQLAlchemy is tracking it
             await self.db.flush()  # Save any document updates
             
+            print(len(chunks) == len(embeddings))
+            
             # Add chunks that reference the existing document
             for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
                 chunk_record = DocumentChunk(
@@ -165,7 +167,10 @@ class DocumentService(IDocumentService):
             # Step 2: Preprocess content
             preprocessed_content = await self.preprocess_content(content)
             
-            # Step 3: Chunk content
+            # Step 3: Generate embeddings
+            embeddings = await self.generate_embeddings(preprocessed_content)
+            
+            # Step 4: Chunk content
             metadata = {"filename": document_filename, "content_type": "application/pdf"}
             chunks = await self.chunk_content(
                 preprocessed_content, 
@@ -173,8 +178,10 @@ class DocumentService(IDocumentService):
                 chunk_size, 
             )
             
-            # Step 4: Generate embeddings
-            embeddings = await self.generate_embeddings(chunks)
+            #Step 4: Embeddings chunks mapping
+            chunk_embeddings = []
+            for chunk in chunks:
+                chunk_embeddings.append(embeddings[chunk.chunk_index : chunk.chunk_index + chunk_size])
             
             # Step 5: Process existing document and add chunks
             document_title = document_filename or "Untitled Document"
@@ -183,7 +190,7 @@ class DocumentService(IDocumentService):
                 document_id=document_id,  # Use existing document ID
                 content=preprocessed_content,
                 chunks=chunks,
-                embeddings=embeddings,
+                embeddings=chunk_embeddings,
                 metadata=metadata,
                 user_id=user_id
             )

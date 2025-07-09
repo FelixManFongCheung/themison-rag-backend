@@ -1,19 +1,21 @@
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
-from app.dependencies.auth import get_current_user
-from fastapi.responses import JSONResponse
-import io
 import asyncio
-from typing import List, Dict, Any, Annotated
-from app.services.indexing.document_service import DocumentService
-from app.dependencies.rag import get_document_service
-from app.contracts.document import DocumentResponse
-from pypdf import PdfReader
-from langchain.docstore.document import Document as LangchainDocument
 import concurrent.futures
+import io
 from datetime import datetime
-from pydantic import BaseModel
+from typing import Annotated, Any, Dict, List
 from uuid import UUID
+
 import requests
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import JSONResponse
+from langchain.docstore.document import Document as LangchainDocument
+from pydantic import BaseModel
+from pypdf import PdfReader
+
+from app.contracts.document import DocumentResponse
+from app.dependencies.auth import get_current_user
+from app.dependencies.rag import get_document_service
+from app.services.indexing.document_service import DocumentService
 
 router = APIRouter()
 
@@ -26,7 +28,7 @@ async def upload_pdf_document(
     document_url: str,
     document_id: UUID,  # UUID of existing document created by frontend
     chunk_size: int = 1000,
-    chunk_overlap: int = 200,
+    chunk_overlap: int = 100,
     user = Depends(get_current_user),
     document_service: DocumentService = Depends(get_document_service)
 ):

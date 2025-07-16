@@ -167,6 +167,8 @@ class DocumentService(IDocumentService):
             # Step 2: Preprocess content
             preprocessed_content = await self.preprocess_content(content)
             
+            
+            # TODO: chunk then embed
             # Step 3: Generate embeddings
             embeddings = await self.generate_embeddings(preprocessed_content)
             

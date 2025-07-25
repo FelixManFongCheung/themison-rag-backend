@@ -1,11 +1,13 @@
-from fastapi import FastAPI, Depends
-from app.api.routes import *
-from app.dependencies.auth import auth
-from app.core.embeddings import SentenceTransformerProvider
-from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
-from contextlib import asynccontextmanager
 import os
+from contextlib import asynccontextmanager
+
+from dotenv import load_dotenv
+from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.api.routes import *
+from app.core.embeddings import SentenceTransformerProvider
+from app.dependencies.auth import auth
 
 load_dotenv()
 
@@ -47,12 +49,5 @@ app.include_router(
     query_router,
     prefix="/query",
     tags=["query"],
-    dependencies=[Depends(auth.verify_jwt)]
-)
-
-app.include_router(
-    documents_router,
-    prefix="/documents",
-    tags=["documents"],
     dependencies=[Depends(auth.verify_jwt)]
 )

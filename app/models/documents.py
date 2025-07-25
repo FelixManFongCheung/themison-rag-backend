@@ -1,11 +1,14 @@
-from sqlalchemy import Column, Text, JSON, DateTime
-from sqlalchemy.dialects.postgresql import UUID
-from datetime import datetime, UTC
-from .base import Base  
-from sqlalchemy.orm import relationship, Mapped
 import uuid
-from .chat_sessions import ChatSession
-from typing import List, Integer, String
+from datetime import UTC, datetime
+# from .chat_sessions import ChatSession  # Removed to fix circular import
+from typing import List
+
+from sqlalchemy import JSON, Column, DateTime, Integer, String, Text
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, relationship
+
+from .base import Base
+
 
 class Document(Base):
     __tablename__ = 'documents'
@@ -16,12 +19,12 @@ class Document(Base):
     storage_url: Mapped[str] = Column(Text, nullable=False)
     file_size: Mapped[int] = Column(Integer)
     processing_status: Mapped[str] = Column(String(50), default="pending")
-    metadata: Mapped[JSON] = Column(JSON)
+    doc_metadata: Mapped[JSON] = Column("metadata", JSON)
     chunks: Mapped[JSON] = Column(JSON)
     content: Mapped[Text] = Column(Text)
     total_pages: Mapped[int] = Column(Integer)
     total_chunks: Mapped[int] = Column(Integer)
     created_at: Mapped[DateTime] = Column(DateTime, default=lambda: datetime.now(UTC))
     updated_at: Mapped[DateTime] = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
-    chat_sessions: Mapped[List[ChatSession]] = relationship("ChatSession", secondary="chat_document_links", back_populates="documents")
+    chat_sessions: Mapped[list["ChatSession"]] = relationship("ChatSession", secondary="chat_document_links", back_populates="documents")
     

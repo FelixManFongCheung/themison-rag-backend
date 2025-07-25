@@ -18,3 +18,5 @@ alembic
 pydantic
 pydantic-settings
 asyncpg
+pgvector
+greenlet

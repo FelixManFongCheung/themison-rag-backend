@@ -1,12 +1,15 @@
-from sqlalchemy import Column, Text, JSON, DateTime, String
-from sqlalchemy.dialects.postgresql import UUID
-from datetime import datetime, UTC
-from .base import Base
-from sqlalchemy.orm import relationship, Mapped
-from typing import List
 import uuid
+from datetime import UTC, datetime
+from typing import List
+
+from sqlalchemy import JSON, Column, DateTime, String, Text
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, relationship
+
+from .base import Base
 from .chat_messages import ChatMessage
-from .documents import Document
+
+# from .documents import Document  # Removed to fix circular import
 
 class ChatSession(Base):
     __tablename__ = 'chat_sessions'
@@ -21,7 +24,7 @@ class ChatSession(Base):
     messages: Mapped[List[ChatMessage]] = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan")
     
     # Many-to-many with documents
-    documents: Mapped[List[Document]] = relationship(
+    documents: Mapped[list["Document"]] = relationship(
         "Document",
         secondary="chat_document_links",
         back_populates="chat_sessions"

@@ -1,11 +1,14 @@
-from sqlalchemy import Column, JSON, DateTime, ForeignKey, Vector, Integer, Text
-from sqlalchemy.orm import Mapped, relationship
-from sqlalchemy.dialects.postgresql import UUID
-from .base import Base
-from datetime import datetime, UTC
 import uuid
+from datetime import UTC, datetime
+from typing import Dict, List
+
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, Text
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, relationship
+
+from .base import Base
 from .documents import Document
-from typing import List, Dict
 
 
 # New table for individual chunks
@@ -16,7 +19,7 @@ class DocumentChunk(Base):
     document_id: Mapped[UUID] = Column(UUID(as_uuid=True), ForeignKey('documents.id'), nullable=False)
     content: Mapped[str] = Column(Text, nullable=False)
     chunk_index: Mapped[int] = Column(Integer, nullable=False)
-    metadata: Mapped[Dict] = Column(JSON)
+    chunk_metadata: Mapped[Dict] = Column("metadata", JSON)
     embedding: Mapped[List[float]] = Column(Vector(1024))
     created_at: Mapped[datetime] = Column(DateTime, default=lambda: datetime.now(UTC))
     

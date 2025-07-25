@@ -114,8 +114,8 @@ class DocumentService(IDocumentService):
                 document.content = content
             if metadata:
                 # Merge with existing metadata
-                existing_metadata = document.metadata or {}
-                document.metadata = {**existing_metadata, **metadata}
+                existing_metadata = document.doc_metadata or {}
+                document.doc_metadata = {**existing_metadata, **metadata}
             
             # No need to add document - it already exists and SQLAlchemy is tracking it
             await self.db.flush()  # Save any document updates
@@ -129,7 +129,7 @@ class DocumentService(IDocumentService):
                     document_id=document.id,  # Reference existing document
                     content=chunk.page_content,
                     chunk_index=i,
-                    metadata={**chunk.metadata, "chunk_index": i},
+                    chunk_metadata={**chunk.chunk_metadata, "chunk_index": i},
                     embedding=embedding,
                     created_at=datetime.now(UTC)
                 )
@@ -168,7 +168,6 @@ class DocumentService(IDocumentService):
             preprocessed_content = await self.preprocess_content(content)
             
             
-            # TODO: chunk then embed
             # Step 3: Generate embeddings
             embeddings = await self.generate_embeddings(preprocessed_content)
             

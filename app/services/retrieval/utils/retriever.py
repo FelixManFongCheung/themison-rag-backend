@@ -1,9 +1,12 @@
-from ..indexing.embeddings import encode_texts
-from app.lib.supabase_client import supabase_client
-from typing import List, Dict, Any, Optional
 import asyncio
-import numpy as np
 import re
+from typing import Any, Dict, List, Optional
+
+import numpy as np
+
+from app.supabase_client.supabase_client import supabase_client
+
+from ..indexing.embeddings import encode_texts
 
 supabase = supabase_client()
 

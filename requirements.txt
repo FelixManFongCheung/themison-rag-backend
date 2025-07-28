@@ -20,3 +20,4 @@ pydantic-settings
 asyncpg
 pgvector
 greenlet
+psycopg2
